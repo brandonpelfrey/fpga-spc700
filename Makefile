@@ -12,8 +12,8 @@ CXXFLAGS += -std=c++17
 CXXFLAGS += -I$(VERILATOR_INC)
 VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED
 
-.PHONY: all all-verilate all-test clean
-all: all-verilate all-test
+.PHONY: all all-verilate all-test make-test-folder clean
+all: all-verilate all-test make-test-folder
 
 ################################################################################
 # Generic Build Rules
@@ -49,6 +49,9 @@ endef
 
 $(foreach what,$(MODULES),$(eval $(call GEN_verilator,$(what))))
 $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
+
+make-test-folder:
+	mkdir -p build/test
 
 clean:
 	rm -rf build

@@ -1,14 +1,30 @@
+// The S-DSP is nominally intended to output samples at 32KhZ, and originally
+// had 96 clock cycles per sample (~3MhZ). In this system, we'll be shooting for
+// 32 cycles per sample (So a 1.024 MhZ input clock, receiving L/R samples once every
+// 32 cycles).
+
 module DSP (
   inout [15:0] ram_address,
   inout [7:0] ram_data,
   output ram_write_enable,
 
+  input [7:0]  dsp_reg_address,
+  input [7:0]  dsp_reg_data_in,
+  output [7:0] dsp_reg_data_out,
+  input        dsp_reg_write_enable,
+
   input clock,
   input reset,
   output reg audio_valid,
-  output [15:0] audio_output,
+  output [15:0] dac_out_l,
+  output [15:0] dac_out_r,
   output idle
 );
+
+reg [4:0] clock_counter;
+
+parameter OUTPUT_AUDIO_RATE = 32000;
+parameter CLOCKS_PER_SAMPLE = 32;
 
 /////////////////////////////////////////////
 // There are over 200 1-byte registers on the DSP. For simplicity in addressing,
@@ -52,12 +68,25 @@ assign ram_write_enable = 0;
 reg [7:0] test;
 assign ram_data = test;
 
+reg [15:0] wave;
+
 always @(posedge clock) begin
   test <= reset ? ram_address[7:0] : ram_address[15:8];
+  clock_counter <= reset ? 0 : clock_counter+1;
+
+  if(clock_counter == 0) begin
+    if(reset) begin
+      wave <= 0;
+    end else begin 
+      wave <= wave + 100;
+    end
+  end
 end
 
 assign audio_valid = 0;
 assign idle = 0;
-assign audio_output = 16'b0;
+assign dsp_reg_data_out = 0;
+assign dac_out_l = {11'b0, 5'b10110};
+assign dac_out_r = wave;
   
 endmodule

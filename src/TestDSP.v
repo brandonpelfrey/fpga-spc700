@@ -1,8 +1,14 @@
 module TestDSP(
   input clock,
   input reset,
-  output [15:0] audio_output,
-  output idle
+  output [15:0] dac_out_l,
+  output [15:0] dac_out_r,
+  output idle,
+
+  input  [7:0] dsp_reg_address,
+  input  [7:0] dsp_reg_data_in,
+  output [7:0] dsp_reg_data_out,
+  input        dsp_reg_write_enable
 );
 
 reg audio_valid;
@@ -22,11 +28,19 @@ DSP dsp(
   .ram_address(address),
   .ram_data(data),
   .ram_write_enable(write_enable),
+
+  .dsp_reg_address(dsp_reg_address),
+  .dsp_reg_data_in(dsp_reg_data_in),
+  .dsp_reg_data_out(dsp_reg_data_out),
+  .dsp_reg_write_enable(dsp_reg_write_enable),
+
   .clock(clock),
   .reset(reset),
   .idle(idle),
   .audio_valid(audio_valid),
-  .audio_output(audio_output)
+
+  .dac_out_l(dac_out_l),
+  .dac_out_r(dac_out_r)
 );
 
 endmodule

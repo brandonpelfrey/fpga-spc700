@@ -25,7 +25,7 @@ build/libverilated.a : $(VERILATOR_INC)/verilated.cpp
 define GEN_verilator
 build/build-$(1)/V$(1).cpp: src/$(1).v
 	mkdir -p build/build-$(1)
-	verilator -Wall -cc -Mdir build/build-$(1) --exe src/SimulatorTop.v
+	verilator -Wall -cc -Mdir build/build-$(1) --exe src/$(1).v --top-module $(1)
 
 build/lib$(1).a: build/build-$(1)/V$(1).cpp
 	for i in build/build-$(1)/*.cpp; do \

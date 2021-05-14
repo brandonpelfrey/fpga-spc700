@@ -11,7 +11,7 @@ CXXFLAGS := -Ibuild/
 CXXFLAGS += -std=c++17
 CXXFLAGS += -I$(VERILATOR_INC)
 
-.PHONY: all all-verilate all-test
+.PHONY: all all-verilate all-test clean
 all: all-verilate all-test
 
 ################################################################################
@@ -25,7 +25,11 @@ build/libverilated.a : $(VERILATOR_INC)/verilated.cpp
 define GEN_verilator
 build/build-$(1)/V$(1).cpp: src/$(1).v
 	mkdir -p build/build-$(1)
+<<<<<<< HEAD
 	verilator -Wall -cc -Mdir build/build-$(1) --exe src/$(1).v --top-module $(1)
+=======
+	verilator -Wall -cc -Mdir build/build-$(1) --exe src/$(1).v
+>>>>>>> 44db15e (Add clean to Makefile)
 
 build/lib$(1).a: build/build-$(1)/V$(1).cpp
 	for i in build/build-$(1)/*.cpp; do \
@@ -48,3 +52,6 @@ endef
 
 $(foreach what,$(MODULES),$(eval $(call GEN_verilator,$(what))))
 $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
+
+clean:
+	rm -rf build

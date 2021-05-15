@@ -39,6 +39,8 @@ public:
 		printf("D2:     %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[6]);
 		printf("PC:     %04x\n", (*this)->CPUBench__DOT__cpu__DOT__PC);
 		printf("----\n");
+		printf("InpA:   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__source_a);
+		printf("InpB:   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__source_b);
 		printf("Stage   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__stage);
 		printf("ALU:    %04x\n", (*this)->CPUBench__DOT__cpu__DOT__alu_mode);
 		printf("MemBus: %02x\n", (*this)->out_ram_read);
@@ -66,6 +68,8 @@ main(int argc, char **argv, char **env)
 	assembler.CLP();
 	assembler.CLC();
 	assembler.CLI();
+	assembler.SBC(0x14);
+	assembler.BPL(0x00);
 	assembler.HLT();
 
 	while (!bench->out_halted) {

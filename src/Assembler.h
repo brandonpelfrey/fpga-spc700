@@ -16,6 +16,8 @@ public:
 		m_address = address;
 	}
 
+	/* Column 1A */
+
 	void NOP()
 	{
 		write(0x00);
@@ -56,7 +58,57 @@ public:
 		write(0xE0);
 	}
 
-	/* Column missing */
+	/* Column 2A */
+
+	void BPL(const uint8_t r)
+	{
+		write(0x10);
+		write(r);
+	}
+
+	void BMI(const uint8_t r)
+	{
+		write(0x30);
+		write(r);
+	}
+
+	void BVC(const uint8_t r)
+	{
+		write(0x50);
+		write(r);
+	}
+
+	void BVS(const uint8_t r)
+	{
+		write(0x70);
+		write(r);
+	}
+
+	void BCC(const uint8_t r)
+	{
+		write(0x90);
+		write(r);
+	}
+
+	void BCS(const uint8_t r)
+	{
+		write(0xB0);
+		write(r);
+	}
+
+	void BNE(const uint8_t r)
+	{
+		write(0xD0);
+		write(r);
+	}
+
+	void BEQ(const uint8_t r)
+	{
+		write(0xF0);
+		write(r);
+	}
+
+	/* Column 3A */
 
 	void ORA(const uint8_t imm)
 	{

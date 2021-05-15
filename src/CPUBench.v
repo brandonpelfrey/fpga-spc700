@@ -51,6 +51,6 @@ module CPUBench(
 		.address(in_cpu_enable ? ram_address : in_ram_address),
 		.data_in(in_cpu_enable ? ram_write : in_ram_write),
 		.data_out(ram_read),
-		.clock(~clock),
+		.clock(clock),
 		.write_enable(in_cpu_enable ? ram_write_enable : in_ram_write_enable));
 endmodule

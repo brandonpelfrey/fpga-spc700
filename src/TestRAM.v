@@ -23,8 +23,8 @@ module TestRAM(address, data_in, data_out, clock, write_enable);
 	begin
 		if (write_enable) begin
 			memory[address] <= data_in;
-		end else begin
-			data_out <= memory[address];
 		end
 	end
+
+	assign data_out = memory[address];
 endmodule

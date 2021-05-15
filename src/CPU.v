@@ -33,13 +33,13 @@ module CPU(
 	 * For the status register, these are the individual flag positions.
 	 */
 	parameter PSW_N = 0, /* Negative */
-			  PSW_V = 1, /* Overflow */
-			  PSW_P = 2, /* Direct Page Selector */
-			  PSW_B = 3, /* Break */
-			  PSW_H = 4, /* Half Carry */
-			  PSW_I = 5, /* Interrupt Enabled (unused) */
-			  PSW_Z = 6, /* Zero */
-			  PSW_C = 7; /* Carry */
+	          PSW_V = 1, /* Overflow */
+	          PSW_P = 2, /* Direct Page Selector */
+	          PSW_B = 3, /* Break */
+	          PSW_H = 4, /* Half Carry */
+	          PSW_I = 5, /* Interrupt Enabled (unused) */
+	          PSW_Z = 6, /* Zero */
+	          PSW_C = 7; /* Carry */
 
 	/*
 	 * Data: CPU Pipeline
@@ -47,14 +47,17 @@ module CPU(
 	reg       enable;         /* Enable CPU execution (for debugging) */
 	reg [6:0] stage;          /* Pipeline Stage (one-hot encoding) */
 	reg [1:0] decode_bytes;   /* Instruction encoding bytes */
-	reg [7:0] source_a_mode;  /* Execute input field A mode */
-	reg [2:0] source_a_index; /* Execute input field A register index */
-	reg [7:0] source_b_mode;  /* Execute input field B mode */
-	reg [2:0] source_b_index; /* Execute input field B register index */
+	reg [7:0] source_a_mode;  /* Execute: input field A mode */
+	reg [2:0] source_a_index; /* Execute: input field A register index */
+	reg [7:0] source_b_mode;  /* Execute: input field B mode */
+	reg [2:0] source_b_index; /* Execute: input field B register index */
+	reg       source_b_imm;   /* Execute: input field B select source_imm */
+	reg       source_carry;   /* Execute: input carry bit */
+	reg [7:0] source_imm;     /* Execute: instruction-inferred immediate */
 	reg [7:0] result_mode;    /* Result output mode */
 	reg [2:0] result_index;   /* Result output register index */
-	reg [7:0] result;         /* Output from compute stage */
-	reg       carry;          /* Intermediate stage carry output */
+	reg [7:0] result;         /* Data output from compute stage */
+	reg [7:0] status;         /* Status output from compute stage */
 	reg [7:0] alu_mode;       /* ALU operation mode */
 
 	/*
@@ -70,44 +73,44 @@ module CPU(
 	 * Note: PC is special cased becasue it is the only 16-bit register.
 	 */
 	parameter REGISTER_A    = 0, /* "A" Register */
-			  REGISTER_X    = 1, /* "X" Register */
-			  REGISTER_Y    = 2, /* "Y" Register */
-			  REGISTER_SP   = 3, /* "SP" Register */
-			  REGISTER_PSW  = 4, /* "PSW" Register */
-			  REGISTER_D1   = 5, /* Virtual register 1 for immediates */
-			  REGISTER_D2   = 6, /* Virtual register 2 for immediates */
-			  REGISTER_NULL = 7; /* Zero register */
+	          REGISTER_X    = 1, /* "X" Register */
+	          REGISTER_Y    = 2, /* "Y" Register */
+	          REGISTER_SP   = 3, /* "SP" Register */
+	          REGISTER_PSW  = 4, /* "PSW" Register */
+	          REGISTER_D1   = 5, /* Virtual register 1 for immediates */
+	          REGISTER_D2   = 6, /* Virtual register 2 for immediates */
+	          REGISTER_NULL = 7; /* Zero register */
 
 	/*
 	 * Control line bits for pipeline source and destination modes.
 	 */
 	/* TODO Does PC need control lines? */
 	parameter DATA_R        = 0, /* Register file */
-			  DATA_RAM      = 1; /* Memory */
+	          DATA_RAM      = 1; /* Memory */
 
 	/*
 	 * Control line bits for pipeline stage.
 	 */
 	parameter STAGE_FETCH   = 0, /* Instruction Fetch */
-			  STAGE_DECODE  = 1, /* Instruction Decode */
-			  STAGE_PARAM1  = 2, /* Second Parameter (byte) Fetch */
-			  STAGE_PARAM2  = 3, /* Third Parameter (byte) Fetch */
-			  STAGE_COMPUTE = 4, /* Result Compute */
-			  STAGE_WRITE   = 5, /* Write result to register / memory */
-			  STAGE_DELAY   = 6; /* Delay to match original hardware */
+	          STAGE_DECODE  = 1, /* Instruction Decode */
+	          STAGE_PARAM1  = 2, /* Second Parameter (byte) Fetch */
+	          STAGE_PARAM2  = 3, /* Third Parameter (byte) Fetch */
+	          STAGE_COMPUTE = 4, /* Result Compute */
+	          STAGE_WRITE   = 5, /* Write result to register / memory */
+	          STAGE_DELAY   = 6; /* Delay to match original hardware */
 
 	/*
 	 * The correspondence from data control lines for ALU operations.
 	 */
 	parameter ALU_OR     = 0,
-			  ALU_AND    = 1,
-			  ALU_XOR    = 2,
-			  ALU_ANDNOT = 3,
-			  ALU_ADD    = 4,
-			  ALU_SUB    = 5,
-			  ALU_NONE_A = 6,
-			  ALU_NONE_B = 7;
-			  /* TODO */
+	          ALU_AND    = 1,
+	          ALU_XOR    = 2,
+	          ALU_ANDNOT = 3,
+	          ALU_ADD    = 4,
+	          ALU_SUB    = 5,
+	          ALU_NONE_A = 6,
+	          ALU_NONE_B = 7;
+	          /* TODO */
 
 	/* XXX */
 	reg [15:0] ram_address;
@@ -142,10 +145,13 @@ module CPU(
 			source_a_index <= 0;
 			source_b_mode <= 0;
 			source_b_index <= 0;
+			source_b_imm <= 0;
+			source_carry <= 0;
+			source_imm <= 0;
 			result_mode <= 0;
 			result_index <= 0;
 			result <= 0;
-			carry <= 0;
+			status <= 0;
 			alu_mode <= 0;
 
 			/* XXX Cleanup with final RAM */
@@ -181,6 +187,7 @@ module CPU(
 	/*
 	 * Instruction Decode
 	 */
+	/* TODO Convert decode to always @(*) / wire logic */
 	always @(posedge clock)
 	begin
 		if (enable == 1'b1 && stage[STAGE_DECODE]) begin
@@ -188,6 +195,81 @@ module CPU(
 			 * that determine which stages will run and their
 			 * configuration. */
 			casez (in_ram_read)
+				8'b???_000_00: begin
+					/* Status register operations. */
+					casez (in_ram_read)
+						8'b000_???_??: begin
+							/* NOP */
+							alu_mode <= (1 << ALU_NONE_A);
+							source_a_index <= REGISTER_D1;
+							result_index <= REGISTER_D1; /* Unused */
+						end
+
+						8'b001_???_??: begin
+							/* CLP: PSW_P = 0 */
+							alu_mode <= (1 << ALU_ANDNOT);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_P);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b010_???_??: begin
+							/* SEP: PSW_P = 1 */
+							alu_mode <= (1 << ALU_OR);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_P);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b011_???_??: begin
+							/* CLC: PSW_C = 0 */
+							alu_mode <= (1 << ALU_ANDNOT);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_C);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b100_???_??: begin
+							/* SEC: PSW_C = 1 */
+							alu_mode <= (1 << ALU_OR);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_C);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b101_???_??: begin
+							/* CLI: PSW_I = 0 */
+							alu_mode <= (1 << ALU_ANDNOT);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_I);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b110_???_??: begin
+							/* SEI: PSW_I = 1 */
+							alu_mode <= (1 << ALU_OR);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_I);
+							result_index <= REGISTER_PSW;
+						end
+
+						8'b111_???_??: begin
+							/* CLV: PSW_V = 0 */
+							alu_mode <= (1 << ALU_ANDNOT);
+							source_a_index <= REGISTER_PSW;
+							source_imm <= (1 << PSW_V);
+							result_index <= REGISTER_PSW;
+						end
+					endcase
+
+					stage <= (1 << STAGE_COMPUTE);
+					decode_bytes <= 1;
+					source_a_mode <= DATA_R;
+					source_b_mode <= DATA_R;
+					source_b_imm <= 1;
+					result_mode <= DATA_R;
+				end
+
 				8'b???_010_00: begin
 					/* ALU operation with immediate value */
 					/* TODO This can probably have a common encoding
@@ -255,8 +337,13 @@ module CPU(
 					source_a_mode <= DATA_R;
 					source_b_mode <= DATA_R;
 					source_b_index <= REGISTER_D1;
+					source_b_imm <= 0;
 					result_mode <= DATA_R;
-					ram_address <= PC + 1;
+				end
+
+				8'b111_111_11: begin
+					/* HLT */
+					enable <= 1'b0;
 				end
 
 				default: begin
@@ -264,6 +351,9 @@ module CPU(
 					enable <= 1'b0;
 				end
 			endcase
+
+			/* Always prepare to fetch next address, possibly unused. */
+			ram_address <= PC + 1;
 		end
 	end
 
@@ -272,6 +362,8 @@ module CPU(
 	 */
 	always @(posedge clock)
 	begin
+		/* TODO This could easily be combined with decode, but this simplifies
+		 *      the code a little for now. */
 		if (enable == 1'b1 && stage[STAGE_PARAM1]) begin
 			R[REGISTER_D1] <= in_ram_read;
 			if (decode_bytes == 2) begin
@@ -294,6 +386,9 @@ module CPU(
 		end
 	end
 
+	wire [7:0] source_a = R[source_a_index];
+	wire [7:0] source_b = source_b_imm == 1'b1 ? source_imm : R[source_b_index];
+
 	/*
 	 * Result Computation
 	 */
@@ -302,35 +397,35 @@ module CPU(
 		if (enable == 1'b1 && stage[STAGE_COMPUTE]) begin
 			case (1'b1)
 				alu_mode[ALU_OR]: begin
-					result <= R[source_a_index] | R[source_b_index];
+					result <= source_a | source_b;
 				end
 
 				alu_mode[ALU_AND]: begin
-					result <= R[source_a_index] & R[source_b_index];
+					result <= source_a & source_b;
 				end
 
 				alu_mode[ALU_XOR]: begin
-					result <= R[source_a_index] ^ R[source_b_index];
+					result <= source_a ^ source_b;
 				end
 
 				alu_mode[ALU_ANDNOT]: begin
-					result <= R[source_a_index] & ~R[source_b_index];
+					result <= source_a & ~source_b;
 				end
 
 				alu_mode[ALU_ADD]: begin
-					result <= R[source_a_index] + R[source_b_index] + { 7'b000_0000, carry };
+					result <= source_a + source_b + { 7'b000_0000, source_carry };
 				end
 
 				alu_mode[ALU_SUB]: begin
-					result <= R[source_a_index] - R[source_b_index] - { 7'b000_0000, carry };
+					result <= source_a - source_b - { 7'b000_0000, source_carry };
 				end
 
 				alu_mode[ALU_NONE_A]: begin
-					result <= R[source_a_index];
+					result <= source_a;
 				end
 
 				alu_mode[ALU_NONE_B]: begin
-					result <= R[source_b_index];
+					result <= source_b;
 				end
 
 				default: begin

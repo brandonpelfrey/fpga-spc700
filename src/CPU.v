@@ -26,77 +26,95 @@ module CPU(
 	/*
 	 * Data: CPU Registers
 	 */
-	reg [7:0] A;   /* Accumulator */
-	reg [7:0] X;   /* General Register */
-	reg [7:0] Y;   /* General Register */
-	reg [7:0] SP;  /* Stack Pointer */
-	reg [15:0] PC; /* Fetch Address */
-	reg [7:0] PSW; /* Status Register */
+	reg [7:0] R [7:0]; /* Register File */
+	reg [15:0] PC;     /* Program Counter */
 
 	/*
 	 * For the status register, these are the individual flag positions.
 	 */
 	parameter PSW_N = 0, /* Negative */
-	          PSW_V = 1, /* Overflow */
-	          PSW_P = 2, /* Direct Page Selector */
-	          PSW_B = 3, /* Break */
-	          PSW_H = 4, /* Half Carry */
-	          PSW_I = 5, /* Interrupt Enabled (unused) */
-	          PSW_Z = 6, /* Zero */
-	          PSW_C = 7; /* Carry */
+			  PSW_V = 1, /* Overflow */
+			  PSW_P = 2, /* Direct Page Selector */
+			  PSW_B = 3, /* Break */
+			  PSW_H = 4, /* Half Carry */
+			  PSW_I = 5, /* Interrupt Enabled (unused) */
+			  PSW_Z = 6, /* Zero */
+			  PSW_C = 7; /* Carry */
 
 	/*
 	 * Data: CPU Pipeline
 	 */
-	reg       cpu_enable;   /* Enable CPU execution (for debugging) */
-	reg [5:0] cpu_stage;    /* Pipeline Stage (one-hot encoding) */
-	reg [7:0] cpu_data1;    /* Fetched second instruction byte */
-	reg [7:0] cpu_data2;    /* Fetched third instruction byte */
-	reg [7:0] cpu_source_a; /* Execute stage input field A */
-	reg [7:0] cpu_source_b; /* Execute stage input field B */
-	reg       cpu_carry;    /* Execute stage enable carry input */
-	reg [3:0] cpu_alu_mode; /* ALU operation mode */
-	reg [8:0] cpu_result;   /* Write stage output field */
+	reg       enable;         /* Enable CPU execution (for debugging) */
+	reg [6:0] stage;          /* Pipeline Stage (one-hot encoding) */
+	reg [1:0] decode_bytes;   /* Instruction encoding bytes */
+	reg [7:0] source_a_mode;  /* Execute input field A mode */
+	reg [2:0] source_a_index; /* Execute input field A register index */
+	reg [7:0] source_b_mode;  /* Execute input field B mode */
+	reg [2:0] source_b_index; /* Execute input field B register index */
+	reg [7:0] result_mode;    /* Result output mode */
+	reg [2:0] result_index;   /* Result output register index */
+	reg [7:0] result;         /* Output from compute stage */
+	reg       carry;          /* Intermediate stage carry output */
+	reg [7:0] alu_mode;       /* ALU operation mode */
 
 	/*
-	 * Control line bits for pipeline source and destinations.
+	 * Indexes for the internal register file.
+	 *
+	 * Because registers are not remapped, this is a combination of real CPU
+	 * registers and internal temporary registers. Placing them in the same
+	 * structure simplifies the implementation.
+	 *
+	 * TODO Only one stage(s) should read, and one stage(s) should write, to
+	 *      the register file.
+	 *
+	 * Note: PC is special cased becasue it is the only 16-bit register.
 	 */
-	parameter CONTROL_A    = 0, /* "A" Register */
-	          CONTROL_X    = 1, /* "X" Register */
-	          CONTROL_Y    = 2, /* "Y" Register */
-	          CONTROL_SP   = 3, /* "SP" Register */
-	          CONTROL_PSW  = 4, /* "PSW" Register */
-	          /* TODO Does PC need control lines? */
-	          CONTROL_D1   = 5, /* Second Instruction Byte */
-	          CONTROL_D2   = 6, /* Third Instruction Byte */
-	          CONTROL_RAM  = 7, /* Memory */
-	          CONTROL_NONE = 8; /* None */
+	parameter REGISTER_A    = 0, /* "A" Register */
+			  REGISTER_X    = 1, /* "X" Register */
+			  REGISTER_Y    = 2, /* "Y" Register */
+			  REGISTER_SP   = 3, /* "SP" Register */
+			  REGISTER_PSW  = 4, /* "PSW" Register */
+			  REGISTER_D1   = 5, /* Virtual register 1 for immediates */
+			  REGISTER_D2   = 6, /* Virtual register 2 for immediates */
+			  REGISTER_NULL = 7; /* Zero register */
+
+	/*
+	 * Control line bits for pipeline source and destination modes.
+	 */
+	/* TODO Does PC need control lines? */
+	parameter DATA_R        = 0, /* Register file */
+			  DATA_RAM      = 1; /* Memory */
 
 	/*
 	 * Control line bits for pipeline stage.
 	 */
 	parameter STAGE_FETCH   = 0, /* Instruction Fetch */
-	          STAGE_DECODE  = 1, /* Instruction Decode / Parameter Fetch */
-	          STAGE_PARAM   = 2, /* Second Parameter Fetch */
-	          STAGE_COMPUTE = 3, /* Result Compute */
-	          STAGE_WRITE   = 4, /* Write result to register / memory */
-	          STAGE_DELAY   = 5; /* Delay to match original hardware */
+			  STAGE_DECODE  = 1, /* Instruction Decode */
+			  STAGE_PARAM1  = 2, /* Second Parameter (byte) Fetch */
+			  STAGE_PARAM2  = 3, /* Third Parameter (byte) Fetch */
+			  STAGE_COMPUTE = 4, /* Result Compute */
+			  STAGE_WRITE   = 5, /* Write result to register / memory */
+			  STAGE_DELAY   = 6; /* Delay to match original hardware */
 
 	/*
 	 * The correspondence from data control lines for ALU operations.
 	 */
 	parameter ALU_OR     = 0,
-	          ALU_AND    = 1,
-	          ALU_XOR    = 2,
-	          ALU_ANDNOT = 3;
-	          /* TODO */
+			  ALU_AND    = 1,
+			  ALU_XOR    = 2,
+			  ALU_ANDNOT = 3,
+			  ALU_ADD    = 4,
+			  ALU_SUB    = 5,
+			  ALU_NONE_A = 6,
+			  ALU_NONE_B = 7;
+			  /* TODO */
 
 	/* XXX */
 	reg [15:0] ram_address;
 	reg [7:0] ram_write;
 	reg ram_write_enable;
 
-	assign out_halted = ~cpu_enable;
+	assign out_halted = ~enable;
 	assign out_ram_address = ram_address;
 	assign out_ram_write = ram_write;
 	assign out_ram_write_enable = ram_write_enable;
@@ -110,108 +128,241 @@ module CPU(
 	 * minimum of 2 cycles for every instruction, we always have enough time (at
 	 * 2x speed) for the minimum 4 stages (fetch, decode, compute, write).
 	 */
+
+	/*
+	 * Reset Logic
+	 */
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			cpu_enable <= 1'b1;
-			cpu_stage <= (1 << STAGE_FETCH);
-			cpu_data1 <= 0;
-			cpu_data2 <= 0;
-			cpu_source_a <= 0;
-			cpu_source_b <= 0;
-			cpu_result <= 0;
+			enable <= 1'b1;
+			stage <= (1 << STAGE_FETCH);
+			decode_bytes <= 0;
+			source_a_mode <= 0;
+			source_a_index <= 0;
+			source_b_mode <= 0;
+			source_b_index <= 0;
+			result_mode <= 0;
+			result_index <= 0;
+			result <= 0;
+			carry <= 0;
+			alu_mode <= 0;
 
 			/* XXX Cleanup with final RAM */
 			ram_address <= 16'b0000_0000_0000_0000;
 			ram_write <= 8'b0000_0000;
 			ram_write_enable <= 1'b0;
 
-			A <= 8'b0000_0000;
-			X <= 8'b0000_0000;
-			Y <= 8'b0000_0000;
-			SP <= 8'b0000_0000;
+			R[REGISTER_A] <= 8'b0000_0000;
+			R[REGISTER_X] <= 8'b0000_0000;
+			R[REGISTER_Y] <= 8'b0000_0000;
+			R[REGISTER_SP] <= 8'b0000_0000;
+			R[REGISTER_PSW] <= 8'b0000_0000;
+			R[REGISTER_NULL] <= 8'b0000_0000;
 			PC <= 16'b0000_0000_0000_0000;
-			PSW <= 8'b0000_0000;
-		end else if (cpu_enable == 1'b1) case (1'b1)
-			/*
-			 * Instruction Fetch
-			 */
-			cpu_stage[STAGE_FETCH]: begin
-				/* Prepare to read the instruction from memory. Result will be
-				 * visible on the RAM output in the decode stage. */
-				ram_address <= PC;
-				ram_write_enable <= 1'b0;
+		end
+	end
 
-				cpu_stage <= (1 << STAGE_DECODE);
+	/*
+	 * Instruction Fetch
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_FETCH]) begin
+			/* Prepare to read the instruction from memory. Result will be
+			 * visible on the RAM output in the decode stage. */
+			ram_address <= PC;
+			ram_write_enable <= 1'b0;
+
+			stage <= (1 << STAGE_DECODE);
+		end
+	end
+
+	/*
+	 * Instruction Decode
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_DECODE]) begin
+			/* Break the instruction down into a series of control lines
+			 * that determine which stages will run and their
+			 * configuration. */
+			casez (in_ram_read)
+				8'b???_010_00: begin
+					/* ALU operation with immediate value */
+					/* TODO This can probably have a common encoding
+					 *      across many instruction types. */
+					casez (in_ram_read)
+						8'b000_???_??: begin
+							/* ORA: A = A | #i */
+							alu_mode <= (1 << ALU_OR);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+
+						8'b001_???_??: begin
+							/* AND: A = A & #i */
+							alu_mode <= (1 << ALU_AND);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+
+						8'b010_???_??: begin
+							/* EORA: A = A ^ #i */
+							alu_mode <= (1 << ALU_XOR);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+
+						8'b011_???_??: begin
+							/* CMP: A - #i */
+							alu_mode <= (1 << ALU_SUB);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_D1; /* Unused */
+						end
+
+						8'b100_???_??: begin
+							/* ADC: A = A + #i + c */
+							alu_mode <= (1 << ALU_ADD);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+
+						8'b101_???_??: begin
+							/* SBC: A = A - #i - !c */
+							alu_mode <= (1 << ALU_SUB);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+
+						8'b110_???_??: begin
+							/* CPX: X - #i */
+							alu_mode <= (1 << ALU_SUB);
+							source_a_index <= REGISTER_X;
+							result_index <= REGISTER_D1; /* Unused */
+						end
+
+						8'b111_???_??: begin
+							/* LDA: A = #i */
+							alu_mode <= (1 << ALU_NONE_B);
+							source_a_index <= REGISTER_A;
+							result_index <= REGISTER_A;
+						end
+					endcase
+
+					stage <= (1 << STAGE_PARAM1);
+					decode_bytes <= 2;
+					source_a_mode <= DATA_R;
+					source_b_mode <= DATA_R;
+					source_b_index <= REGISTER_D1;
+					result_mode <= DATA_R;
+					ram_address <= PC + 1;
+				end
+
+				default: begin
+					/* Unimplemented Decoding */
+					enable <= 1'b0;
+				end
+			endcase
+		end
+	end
+
+	/*
+	 * Parameter 1 Fetch (optional)
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_PARAM1]) begin
+			R[REGISTER_D1] <= in_ram_read;
+			if (decode_bytes == 2) begin
+				stage <= (1 << STAGE_COMPUTE);
+			end else begin
+				stage <= (1 << STAGE_PARAM2);
+				ram_address <= PC + 2;
 			end
+		end
+	end
 
-			/*
-			 * Decode and Parameter A Fetch
-			 */
-			cpu_stage[STAGE_DECODE]: begin
-				/* Break the instruction down into a series of control lines
-				 * that determine which stages will run and their
-				 * configuration. */
-				casez (in_ram_read)
-					8'b???_010_00: begin
-						/* ALU operation with immediate value */
-						/* TODO This can probably have a common encoding
-						 *      across many instruction types. */
-						casez (in_ram_read)
-							8'b000_???_??: begin
-								/* OR */
-								cpu_alu_mode <= ALU_OR;
-							end
+	/*
+	 * Parameter 2 Fetch (optional)
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_PARAM2]) begin
+			R[REGISTER_D2] <= in_ram_read;
+			stage <= (1 << STAGE_COMPUTE);
+		end
+	end
 
-							8'b001_???_??: begin
-								/* OR */
-								cpu_alu_mode <= ALU_AND;
-							end
+	/*
+	 * Result Computation
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_COMPUTE]) begin
+			case (1'b1)
+				alu_mode[ALU_OR]: begin
+					result <= R[source_a_index] | R[source_b_index];
+				end
 
-							8'b010_???_??: begin
-								/* OR */
-								cpu_alu_mode <= ALU_XOR;
-							end
+				alu_mode[ALU_AND]: begin
+					result <= R[source_a_index] & R[source_b_index];
+				end
 
-							default: begin
-								/* Unimplemented Decoding */
-								cpu_enable <= 1'b0;
-							end
-						endcase
+				alu_mode[ALU_XOR]: begin
+					result <= R[source_a_index] ^ R[source_b_index];
+				end
 
-						cpu_stage <= (1 << STAGE_COMPUTE);
-						cpu_source_a <= CONTROL_A;
-						cpu_source_b <= CONTROL_D1;
-						cpu_result <= CONTROL_A;
-						ram_address <= PC + 1;
-					end
+				alu_mode[ALU_ANDNOT]: begin
+					result <= R[source_a_index] & ~R[source_b_index];
+				end
 
-					default: begin
-						/* Unimplemented Decoding */
-						cpu_enable <= 1'b0;
-					end
-				endcase
-			end
+				alu_mode[ALU_ADD]: begin
+					result <= R[source_a_index] + R[source_b_index] + { 7'b000_0000, carry };
+				end
 
-			cpu_stage[STAGE_PARAM]: begin
-				/* TODO Third instruction byte control lines */
-				cpu_data1 <= in_ram_read;
-				cpu_stage <= (1 << STAGE_COMPUTE);
-			end
+				alu_mode[ALU_SUB]: begin
+					result <= R[source_a_index] - R[source_b_index] - { 7'b000_0000, carry };
+				end
 
-			cpu_stage[STAGE_COMPUTE]: begin
-				cpu_stage <= (1 << STAGE_WRITE);
-				A <= A + 1'b1;
-				PC <= PC + 1'b1;
-			end
+				alu_mode[ALU_NONE_A]: begin
+					result <= R[source_a_index];
+				end
 
-			cpu_stage[STAGE_WRITE]: begin
-				cpu_stage <= (1 << STAGE_DELAY);
-			end
+				alu_mode[ALU_NONE_B]: begin
+					result <= R[source_b_index];
+				end
 
-			cpu_stage[STAGE_DELAY]: begin
-				cpu_stage <= (1 << STAGE_FETCH);
-			end
-		endcase
+				default: begin
+					/* Unimplemented Decoding */
+					enable <= 1'b0;
+				end
+			endcase
+
+			stage <= (1 << STAGE_WRITE);
+		end
+	end
+
+	/*
+	 * Write-Back (register or memory)
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_WRITE]) begin
+			R[result_index] <= result;
+
+			PC <= PC + { 14'b00_0000_0000_0000, decode_bytes };
+			stage <= (1 << STAGE_DELAY);
+		end
+	end
+
+	/*
+	 * Delay (optional, to match original hardware)
+	 */
+	always @(posedge clock)
+	begin
+		if (enable == 1'b1 && stage[STAGE_DELAY]) begin
+			stage <= (1 << STAGE_FETCH);
+		end
 	end
 endmodule

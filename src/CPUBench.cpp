@@ -2,6 +2,7 @@
 
 #include "BasicBench.h"
 #include "VCPUBench.h"
+#include "Assembler.h"
 
 class CPUBench : public BasicBench<VCPUBench>
 {
@@ -19,6 +20,11 @@ public:
 	uint8_t ram_read(const uint16_t address) const
 	{
 		return (*this)->CPUBench__DOT__ram__DOT__memory[address];
+	}
+
+	uint8_t *ram_data()
+	{
+		return (*this)->CPUBench__DOT__ram__DOT__memory;
 	}
 
 	void print()
@@ -45,28 +51,22 @@ main(int argc, char **argv, char **env)
 {
 	Verilated::commandArgs(argc, argv);
 	CPUBench bench;
+	Assembler assembler(bench.ram_data());
 
 	bench.reset();
 
-	/* OR A, 0xFF */
-	bench.ram_write(0, 0x08);
-	bench.ram_write(1, 0xFF);
-
-	/* AND A, 0x0F */
-	bench.ram_write(2, 0x28);
-	bench.ram_write(3, 0x0F);
-
-	/* XOR A, 0x11 */
-	bench.ram_write(4, 0x48);
-	bench.ram_write(5, 0x11);
-
-	/* LDA 0x34 */
-	bench.ram_write(6, 0xE8);
-	bench.ram_write(7, 0x34);
-
-	/* ADC 0x10 */
-	bench.ram_write(8, 0x88);
-	bench.ram_write(9, 0x10);
+	assembler.ORA(0xFF);
+	assembler.AND(0x0F);
+	assembler.EORA(0x11);
+	assembler.LDA(0x34);
+	assembler.ADC(0x10);
+	assembler.SEP();
+	assembler.SEC();
+	assembler.SEI();
+	assembler.CLP();
+	assembler.CLC();
+	assembler.CLI();
+	assembler.HLT();
 
 	while (!bench->out_halted) {
 		bench.tick();

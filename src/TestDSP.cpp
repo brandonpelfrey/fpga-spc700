@@ -10,7 +10,7 @@ using u32 = uint32_t;
 using u64 = uint64_t;
 
 const unsigned DSP_AUDIO_RATE = 32000;
-const unsigned DSP_CYCLES_PER_SAMPLE = 32;
+const unsigned DSP_CYCLES_PER_SAMPLE = 96;
 const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
 
 namespace Wave

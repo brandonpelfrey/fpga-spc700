@@ -9,6 +9,8 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
 
+using s16 = int16_t;
+
 const unsigned DSP_AUDIO_RATE = 32000;
 const unsigned DSP_CYCLES_PER_SAMPLE = 96;
 const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
@@ -51,11 +53,11 @@ u32 rev(u32 in)
 class WaveRecorder
 {
 private:
-  std::vector<u16> m_samples;
+  std::vector<s16> m_samples;
 
 public:
   WaveRecorder() {}
-  void push(u16 left, u16 right)
+  void push(s16 left, s16 right)
   {
     m_samples.push_back(left);
     m_samples.push_back(right);

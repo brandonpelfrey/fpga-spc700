@@ -1,6 +1,7 @@
 {
   "C_Cpp.default.includePath": [
     "${workspaceRoot}/build/build-TestDSP/",
+    "${workspaceRoot}/build/build-DSP/",
     "/opt/homebrew/Cellar/verilator/4.200/share/verilator/include"
   ]
 }

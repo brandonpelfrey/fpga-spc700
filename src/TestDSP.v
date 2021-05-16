@@ -1,8 +1,8 @@
 module TestDSP(
   input clock,
   input reset,
-  output [15:0] dac_out_l,
-  output [15:0] dac_out_r,
+  output signed [15:0] dac_out_l,
+  output signed [15:0] dac_out_r,
   output idle,
 
   input  [7:0] dsp_reg_address,

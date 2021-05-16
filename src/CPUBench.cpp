@@ -41,6 +41,8 @@ public:
 		printf("----\n");
 		printf("InpA:   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__source_a);
 		printf("InpB:   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__source_b);
+		printf("Stat:   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__status);
+		printf("StatM:  %04x\n", (*this)->CPUBench__DOT__cpu__DOT__status_mask);
 		printf("Stage   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__stage);
 		printf("ALU:    %04x\n", (*this)->CPUBench__DOT__cpu__DOT__alu_mode);
 		printf("MemBus: %02x\n", (*this)->out_ram_read);
@@ -57,6 +59,7 @@ main(int argc, char **argv, char **env)
 
 	bench.reset();
 
+#if 0
 	assembler.ORA(0xFF);
 	assembler.AND(0x0F);
 	assembler.EORA(0x11);
@@ -69,7 +72,13 @@ main(int argc, char **argv, char **env)
 	assembler.CLC();
 	assembler.CLI();
 	assembler.SBC(0x14);
-	assembler.BPL(0x00);
+	assembler.BPL(0xff);
+	assembler.HLT();
+#endif
+
+	assembler.LDA(0x10);
+	assembler.SBC(0x01);
+	assembler.BNE(0xfc);
 	assembler.HLT();
 
 	while (!bench->out_halted) {

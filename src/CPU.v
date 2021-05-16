@@ -57,9 +57,12 @@ module CPU(
 	reg [7:0] source_b_mode;  /* Decode:  Input field B mode */
 	reg [7:0] source_b;       /* Decode:  Input field B value */
 	reg       source_carry;   /* Decode:  Input carry bit */
+	reg [7:0] branch_target;  /* Decode:  Signed relative branch target */
+	reg [1:0] branch_load;    /* Decode:  Branch target is a fetched immediate */
 	reg [7:0] result_mode;    /* Decode:  Result output mode */
 	reg [2:0] result_index;   /* Decode:  Result output register index */
 	reg [7:0] status_mask;    /* Decode:  Update mask for status register */
+	reg       alu_enable;     /* Decode:  Enable ALU */
 	reg [7:0] alu_mode;       /* Decode:  ALU operation mode */
 	reg       branch;         /* Decode:  Branch instruction */
 	reg [7:0] result;         /* Compute: Data result from compute stage */
@@ -126,7 +129,57 @@ module CPU(
 	assign out_ram_write = ram_write;
 	assign out_ram_write_enable = ram_write_enable;
 
-	reg test;
+	/**************************************************************************
+	 * ALU Implementation (Sub, Add, Logical)
+	 **************************************************************************/
+
+	/*
+	 * Logic outputs from the ALU logic
+	 */
+	logic [7:0] alu_result;
+	logic       alu_zero;
+
+	/*
+	 * Implementation of ALU logic
+	 */
+	always @(*)
+	begin
+		case (1'b1)
+			alu_mode[ALU_OR]: begin
+				alu_result = source_a | source_b;
+			end
+
+			alu_mode[ALU_AND]: begin
+				alu_result = source_a & source_b;
+			end
+
+			alu_mode[ALU_XOR]: begin
+				alu_result = source_a ^ source_b;
+			end
+
+			alu_mode[ALU_ANDNOT]: begin
+				alu_result = source_a & ~source_b;
+			end
+
+			alu_mode[ALU_ADD]: begin
+				alu_result = source_a + source_b + { 7'b000_0000, source_carry };
+			end
+
+			alu_mode[ALU_SUB]: begin
+				alu_result = source_a - source_b - { 7'b000_0000, source_carry };
+			end
+
+			alu_mode[ALU_NONE_A]: begin
+				alu_result = source_a;
+			end
+
+			alu_mode[ALU_NONE_B]: begin
+				alu_result = source_b;
+			end
+		endcase
+
+		alu_zero = (alu_result == 8'b0000_0000);
+	end
 
 	/**************************************************************************
 	 * Instruction Decoding Implementation
@@ -148,17 +201,23 @@ module CPU(
 	logic [7:0] decode_source_b_imm;   /* Input field B immediate value */
 
 	logic       decode_source_carry;   /* Input carry bit */
+
+	logic [7:0] decode_branch_target;  /* Branch relative target */
+	logic [1:0] decode_branch_load;    /* Load branch target from immediate */
+	logic       decode_branch;         /* Branch instruction */
+
 	logic [7:0] decode_result_mode;    /* Result output mode */
 	logic [2:0] decode_result_index;   /* Result output register index */
 	logic [7:0] decode_status_mask;    /* Update mask for status register */
+	logic [7:0] decode_status;         /* Raw value to update status with */
+	logic       decode_alu_enable;     /* Enable ALU in execute stage */
 	logic [7:0] decode_alu_mode;       /* ALU operation mode */
 	logic [1:0] decode_bytes;          /* Instruction byte length */
-	logic       decode_branch;         /* Branch instruction */
 	logic [6:0] decode_stage;          /* Next pipeline stage */
 	logic       decode_error;          /* Invalid instruction */
 
 	/*
-	 *
+	 * Implementation of decoding logic
 	 */
 	always @(*)
 	begin
@@ -175,13 +234,20 @@ module CPU(
 		decode_source_b_imm = 8'b0000_0000;
 
 		decode_source_carry = 1'b0;
+
+		decode_branch_target = 8'b0;
+		decode_branch_load = 2'b0;
+		decode_branch = 1'b0;
+
 		decode_result_mode = DATA_R;
 		decode_result_index = REGISTER_A;
 		decode_status_mask = 8'b0000_0000;
+		decode_status = 8'b0000_0000;
+
 		decode_alu_mode = 8'b0000_0000;
+		decode_alu_enable = 1'b1;
 
 		decode_bytes = 2'd1;
-		decode_branch = 1'b0;
 		decode_stage = (1 << STAGE_COMPUTE);
 		decode_error = 1'b0;
 
@@ -195,77 +261,97 @@ module CPU(
 			 */
 			8'b000_000_00: begin
 				/* NOP */
-				decode_alu_mode = (1 << ALU_NONE_A);
-				decode_source_b_index = REGISTER_D1;
 				decode_result_index = REGISTER_D1; /* Unused */
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b001_000_00: begin
 				/* CLP: PSW_P = 0 */
-				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = ~(1 << PSW_P);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_P);
+				decode_status = 8'b0000_0000;
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b010_000_00: begin
 				/* SEP: PSW_P = 1 */
-				decode_alu_mode = (1 << ALU_OR);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = (1 << PSW_P);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_P);
+				decode_status = (1 << PSW_P);
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b011_000_00: begin
 				/* CLC: PSW_C = 0 */
-				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = ~(1 << PSW_C);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_C);
+				decode_status = 8'b0000_0000;
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b100_000_00: begin
 				/* SEC: PSW_C = 1 */
-				decode_alu_mode = (1 << ALU_OR);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = (1 << PSW_C);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_C);
+				decode_status = (1 << PSW_C);
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b101_000_00: begin
 				/* CLI: PSW_I = 0 */
-				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = ~(1 << PSW_I);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_I);
+				decode_status = 8'b0000_0000;
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b110_000_00: begin
 				/* SEI: PSW_I = 1 */
-				decode_alu_mode = (1 << ALU_OR);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = (1 << PSW_I);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_I);
+				decode_status = (1 << PSW_I);
+				decode_alu_enable = 1'b0;
 			end
 
 			8'b111_000_00: begin
 				/* CLV: PSW_V = 0 */
-				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = ~(1 << PSW_V);
-				decode_result_index = REGISTER_PSW;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_status_mask = (1 << PSW_V);
+				decode_status = 8'b0000_0000;
+				decode_alu_enable = 1'b0;
 			end
 
 			/*
 			 * Column A2: Conditional Relative Branch
 			 */
+			8'b000_100_00: begin
+				/* BPL: if (!PSW.N) PC += #i; */
+				decode_alu_mode = (1 << ALU_AND);
+				decode_source_a_index = REGISTER_PSW;
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = (1 << PSW_N);
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_stage = (1 << STAGE_PARAM1);
+				decode_bytes = 2'd2;
+			end
+
+			/* XXX */
+
+			8'b110_100_00: begin
+				/* BNE: if (!PSW.Z) PC += #i; */
+				decode_alu_mode = (1 << ALU_AND);
+				decode_source_a_index = REGISTER_PSW;
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = (1 << PSW_Z);
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_D1; /* Unused */
+				decode_stage = (1 << STAGE_PARAM1);
+				decode_bytes = 2'd2;
+			end
 
 			/*
 			 * Column A3: Immediate Logical Operations
@@ -328,6 +414,7 @@ module CPU(
 				decode_source_a_index = REGISTER_A;
 				decode_source_b_fetch = 2'b01;
 				decode_result_index = REGISTER_A;
+				decode_status_mask = (1 << PSW_Z); /* N V H Z C */
 				decode_stage = (1 << STAGE_PARAM1);
 				decode_bytes = 2'd2;
 			end
@@ -393,9 +480,15 @@ module CPU(
 			source_b <= 0;
 
 			source_carry <= 0;
+
+			branch_target <= 0;
+			branch_load <= 0;
+
 			result_mode <= 0;
 			result_index <= 0;
+
 			status_mask <= 0;
+			alu_enable <= 0;
 			alu_mode <= 0;
 
 			branch <= 0;
@@ -436,7 +529,6 @@ module CPU(
 	/*
 	 * Instruction Decode
 	 */
-	/* TODO Convert decode to always @(*) / wire logic */
 	always @(posedge clock)
 	begin
 		if (enable == 1'b1 && stage[STAGE_DECODE]) begin
@@ -467,12 +559,18 @@ module CPU(
 			endcase
 
 			source_carry <= decode_source_carry;
+
+			branch_target <= decode_branch_target;
+			branch_load <= decode_branch_load;
+			branch <= decode_branch;
+
 			result_mode <= decode_result_mode;
 			result_index <= decode_result_index;
 			status_mask <= decode_status_mask;
+			status <= decode_status;
 			alu_mode <= decode_alu_mode;
+			alu_enable <= decode_alu_enable;
 			bytes <= decode_bytes;
-			branch <= decode_branch;
 			enable <= ~decode_error;
 			stage <= decode_stage;
 
@@ -495,6 +593,10 @@ module CPU(
 
 			if (source_b_fetch[0]) begin
 				source_b <= in_ram_read;
+			end
+
+			if (branch_load[0]) begin
+				branch_target <= in_ram_read;
 			end
 
 			if (bytes == 2) begin
@@ -520,6 +622,10 @@ module CPU(
 				source_b <= in_ram_read;
 			end
 
+			if (branch_load[1]) begin
+				branch_target <= in_ram_read;
+			end
+
 			stage <= (1 << STAGE_COMPUTE);
 		end
 	end
@@ -530,44 +636,11 @@ module CPU(
 	always @(posedge clock)
 	begin
 		if (enable == 1'b1 && stage[STAGE_COMPUTE]) begin
-			case (1'b1)
-				alu_mode[ALU_OR]: begin
-					result <= source_a | source_b;
-				end
-
-				alu_mode[ALU_AND]: begin
-					result <= source_a & source_b;
-				end
-
-				alu_mode[ALU_XOR]: begin
-					result <= source_a ^ source_b;
-				end
-
-				alu_mode[ALU_ANDNOT]: begin
-					result <= source_a & ~source_b;
-				end
-
-				alu_mode[ALU_ADD]: begin
-					result <= source_a + source_b + { 7'b000_0000, source_carry };
-				end
-
-				alu_mode[ALU_SUB]: begin
-					result <= source_a - source_b - { 7'b000_0000, source_carry };
-				end
-
-				alu_mode[ALU_NONE_A]: begin
-					result <= source_a;
-				end
-
-				alu_mode[ALU_NONE_B]: begin
-					result <= source_b;
-				end
-
-				default: begin
-					/* Unimplemented Decoding */
-					enable <= 1'b0;
-				end
-			endcase
+			if (alu_enable) begin
+				result <= alu_result;
+				/* TODO remaining bits */
+				status[PSW_Z] <= alu_zero;
+			end
 
 			/* Branches are relative to the start of the following
 			 * instruction. So this logic always applies even with branching. */
@@ -584,16 +657,13 @@ module CPU(
 	begin
 		if (enable == 1'b1 && stage[STAGE_WRITE]) begin
 			R[result_index] <= result;
-
-			/* TODO: This conflicts with decodings that directly update the
-			 *       status register. */
-			//R[REGISTER_PSW] <= (old_status & ~status_mask) | (status & status_mask);
+			R[REGISTER_PSW] <= (old_status & ~status_mask) | (status & status_mask);
 
 			/* Branches are taken when the status register has the 'Z' status
 			 * (result of operation was 0). */
-			//if (branch && status[PSW_Z]) begin
-			//	PC <= PC + {  };
-			//end
+			if (branch && status[PSW_Z]) begin
+				PC <= PC + { branch_target[7] ? 8'b1111_1111 : 8'b0000_0000, branch_target };
+			end
 
 			stage <= (1 << STAGE_DELAY);
 		end

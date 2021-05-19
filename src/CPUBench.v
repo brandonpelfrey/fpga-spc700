@@ -1,3 +1,6 @@
+`include "CPU.v"
+`include "TestRAM.v"
+
 /*
  * Test bench to expose the SPC700 CPU with 64KiB of RAM. Does not include the
  * DSP or any other hardware.
@@ -7,10 +10,6 @@ module CPUBench(
 	clock, reset,
 
 	/* Test Control */
-	in_cpu_enable,
-	in_ram_address,
-	in_ram_write,
-	in_ram_write_enable,
 	out_ram_read,
 
 	/* Debug */
@@ -21,10 +20,6 @@ module CPUBench(
 	 */
 	input         clock;
 	input         reset;
-	input         in_cpu_enable;
-	input  [15:0] in_ram_address;
-	input  [7:0]  in_ram_write;
-	input         in_ram_write_enable;
 	output [7:0]  out_ram_read;
 	output        out_halted;
 
@@ -48,9 +43,9 @@ module CPUBench(
 		.out_halted(out_halted));
 
 	TestRAM ram(
-		.address(in_cpu_enable ? ram_address : in_ram_address),
-		.data_in(in_cpu_enable ? ram_write : in_ram_write),
+		.address(ram_address),
+		.data_in(ram_write),
 		.data_out(ram_read),
 		.clock(clock),
-		.write_enable(in_cpu_enable ? ram_write_enable : in_ram_write_enable));
+		.write_enable(ram_write_enable));
 endmodule

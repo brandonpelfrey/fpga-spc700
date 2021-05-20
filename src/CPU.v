@@ -98,12 +98,10 @@ module CPU(
 	          /* TODO */
 
 	/* XXX */
-	reg [15:0] ram_address;
 	reg [7:0] ram_write;
 	reg ram_write_enable;
 
 	assign out_halted = ~enable;
-	assign out_ram_address = ram_address;
 	assign out_ram_write = ram_write;
 	assign out_ram_write_enable = ram_write_enable;
 
@@ -487,16 +485,25 @@ module CPU(
 	 */
 
 	/*
+	 * Memory bus arbitration. The memory bus can be controlled by:
+	 *
+	 *  - Fetch (F) stage to read the instruction
+	 *  - Param (P) stage to read immediate values
+	 *  - Memory (M) stage to read/write memory results (TODO)
+	 *
+	 * TODO This is a mess and a hack.
+	 */
+	assign out_ram_address = stage[STAGE_DECODE] ? (D_pc) : (D_pc + 1);
+
+	/*
 	 * Reset Logic
 	 */
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
 			enable <= 1'b1;
-			stage <= (1 << STAGE_FETCH);
 
 			/* XXX Cleanup with final RAM */
-			ram_address <= 16'b0000_0000_0000_0000;
 			ram_write <= 8'b0000_0000;
 			ram_write_enable <= 1'b0;
 
@@ -506,7 +513,6 @@ module CPU(
 			R[REGISTER_SP] <= 8'b0000_0000;
 			R[REGISTER_PSW] <= 8'b0000_0000;
 			R[REGISTER_NULL] <= 8'b0000_0000;
-			PC <= 16'b0000_0000_0000_0000;
 		end
 	end
 
@@ -517,15 +523,18 @@ module CPU(
 	begin
 		if (reset == 1'b1) begin
 			D_pc <= 16'b0000_0000_0000_0000;
+			stage[STAGE_DECODE] <= 1'b0;
 		end else if (enable == 1'b1 && stage[STAGE_FETCH]) begin
 			D_pc <= PC;
 
 			/* Prepare to read the instruction from memory. Result will be
 			 * visible on the RAM output in the decode stage. */
 			/* TODO */
-			ram_address <= PC;
 			ram_write_enable <= 1'b0;
-			stage <= (1 << STAGE_DECODE);
+
+			stage[STAGE_DECODE] <= 1'b1;
+		end else begin
+			stage[STAGE_DECODE] <= 1'b0;
 		end
 	end
 
@@ -559,6 +568,7 @@ module CPU(
 			P_branch <= 1'b0;
 
 			/* TODO */
+			stage[STAGE_PARAM] <= 1'b0;
 			W_old_status <= 8'b0000_0000;
 		end else if (enable == 1'b1 && stage[STAGE_DECODE]) begin
 			P_pc <= D_pc;
@@ -603,10 +613,9 @@ module CPU(
 			/* TODO */
 			W_old_status <= R[REGISTER_PSW];
 			enable <= ~decode_error;
-			stage <= (1 << STAGE_PARAM);
-
-			/* Always prepare to fetch next address, possibly unused. */
-			ram_address <= PC + 1;
+			stage[STAGE_PARAM] <= 1'b1;
+		end else begin
+			stage[STAGE_PARAM] <= 1'b0;
 		end
 	end
 
@@ -634,6 +643,8 @@ module CPU(
 			X_bytes <= 2'b00;
 			X_branch_target <= 8'b0000_0000;
 			X_branch <= 1'b0;
+
+			stage[STAGE_EXECUTE] <= 1'b0;
 		end else if (enable == 1'b1 && stage[STAGE_PARAM]) begin
 			/* TODO This can't stay here if this stage becomes optional */
 			/* Branches are relative to the start of the following
@@ -668,7 +679,9 @@ module CPU(
 			X_branch <= P_branch;
 
 			/* TODO XXX */
-			stage <= (1 << STAGE_EXECUTE);
+			stage[STAGE_EXECUTE] <= 1'b1;
+		end else begin
+			stage[STAGE_EXECUTE] <= 1'b0;
 		end
 	end
 
@@ -685,6 +698,8 @@ module CPU(
 			W_status <= 8'b0000_0000;
 			W_branch_target <= 16'b0000_0000_0000_0000;
 			W_branch <= 1'b0;
+
+			stage[STAGE_WRITE] <= 1'b0;
 		end else if (enable == 1'b1 && stage[STAGE_EXECUTE]) begin
 			if (X_alu_enable) begin
 				W_out <= alu_result;
@@ -708,7 +723,9 @@ module CPU(
 
 
 			/* TODO XXX */
-			stage <= (1 << STAGE_WRITE);
+			stage[STAGE_WRITE] <= 1'b1;
+		end else begin
+			stage[STAGE_WRITE] <= 1'b0;
 		end
 	end
 
@@ -718,7 +735,8 @@ module CPU(
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			/* N/A */
+			PC <= 16'b0000_0000_0000_0000;
+			stage[STAGE_DELAY] <= 1'b0;
 		end else if (enable == 1'b1 && stage[STAGE_WRITE]) begin
 			R[W_out_index] <= W_out;
 			R[REGISTER_PSW] <= (W_old_status & ~W_status_mask) | (W_status & W_status_mask);
@@ -731,7 +749,9 @@ module CPU(
 				PC <= W_pc;
 			end
 
-			stage <= (1 << STAGE_DELAY);
+			stage[STAGE_DELAY] <= 1'b1;
+		end else begin
+			stage[STAGE_DELAY] <= 1'b0;
 		end
 	end
 
@@ -741,9 +761,11 @@ module CPU(
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			/* N/A */
+			stage[STAGE_FETCH] <= 1'b1;
 		end else if (enable == 1'b1 && stage[STAGE_DELAY]) begin
-			stage <= (1 << STAGE_FETCH);
+			stage[STAGE_FETCH] <= 1'b1;
+		end else begin
+			stage[STAGE_FETCH] <= 1'b0;
 		end
 	end
 endmodule

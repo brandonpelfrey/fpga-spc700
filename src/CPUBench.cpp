@@ -48,7 +48,6 @@ public:
 		printf("nPSWM:  %02x\n", (*this)->CPUBench__DOT__cpu__DOT__W_status_mask);
 		printf("ILen:   %01x\n", (*this)->CPUBench__DOT__cpu__DOT__P_bytes);
 		printf("MemD:   %02x\n", (*this)->out_ram_read);
-		printf("MemA:   %02x\n", (*this)->CPUBench__DOT__cpu__DOT__ram_address);
 		printf("\n");
 	}
 

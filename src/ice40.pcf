@@ -1,0 +1,44 @@
+# For iCE40 HX8K
+# (Note: Somewhat random assignments for now)
+
+set_io clock J3
+set_io reset J4
+set_io out_halted C5
+
+
+
+set_io out_ram_address[0] E2
+set_io out_ram_address[1] F2
+set_io out_ram_address[2] F1
+set_io out_ram_address[3] G1
+set_io out_ram_address[4] H1
+set_io out_ram_address[5] G2
+set_io out_ram_address[6] H2
+set_io out_ram_address[7] M1
+set_io out_ram_address[8] B1
+set_io out_ram_address[9] M3
+set_io out_ram_address[10] M4
+set_io out_ram_address[11] M5
+set_io out_ram_address[12] M6
+set_io out_ram_address[13] M7
+set_io out_ram_address[14] M8
+set_io out_ram_address[15] M9
+
+set_io in_ram_read[0] J5
+set_io in_ram_read[1] J1
+set_io in_ram_read[2] J2
+set_io in_ram_read[3] K3
+set_io in_ram_read[4] K1
+set_io in_ram_read[5] L3
+set_io in_ram_read[6] L1
+set_io in_ram_read[7] M2
+
+set_io out_ram_write[0] B10
+set_io out_ram_write[1] B9
+set_io out_ram_write[2] B8
+set_io out_ram_write[3] B7
+set_io out_ram_write[4] B6
+set_io out_ram_write[5] B5
+set_io out_ram_write[6] B4
+set_io out_ram_write[7] B3
+set_io out_ram_write_enable B2

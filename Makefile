@@ -15,8 +15,11 @@ VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED
 .PHONY: all all-verilate all-test clean
 all: all-verilate all-test
 
+clean:
+	rm -rf build
+
 ################################################################################
-# Generic Build Rules
+# Generic Build Rules (verilator)
 ################################################################################
 
 build/libverilated.a : $(VERILATOR_INC)/verilated.cpp
@@ -52,5 +55,11 @@ endef
 $(foreach what,$(MODULES),$(eval $(call GEN_verilator,$(what))))
 $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
 
-clean:
-	rm -rf build
+################################################################################
+# Build Rules (Ice40)
+################################################################################
+
+.PHONY: ice40
+ice40:
+	yosys -p "read_verilog -sv src/CPU.v; synth_ice40 -blif build/CPU.blif"
+	arachne-pnr -d 8k -P ct256 -p src/ice40.pcf build/CPU.blif -o build/CPU.asc

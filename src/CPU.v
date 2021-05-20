@@ -152,6 +152,10 @@ module CPU(
 			X_alu_mode[ALU_NONE_B]: begin
 				alu_result = X_data_B;
 			end
+
+			default: begin
+				alu_result = 8'bxxxx_xxxx;
+			end
 		endcase
 
 		alu_zero = (alu_result == 8'b0000_0000);

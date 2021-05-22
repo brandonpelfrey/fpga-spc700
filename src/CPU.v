@@ -26,8 +26,9 @@ module CPU(
 	/*
 	 * Data: CPU Registers
 	 */
-	reg [7:0] R [7:0]; /* Register File */
+	reg [7:0] R [4:0]; /* Register File */
 	reg [15:0] PC;     /* Program Counter */
+	reg [7:0] PSW;     /* Status register */
 
 	/*
 	 * For the status register, these are the individual flag positions.
@@ -62,27 +63,13 @@ module CPU(
 	          REGISTER_X    = 1, /* "X" Register */
 	          REGISTER_Y    = 2, /* "Y" Register */
 	          REGISTER_SP   = 3, /* "SP" Register */
-	          REGISTER_PSW  = 4, /* "PSW" Register */
-	          REGISTER_D1   = 5, /* Virtual register 1 for immediates */
-	          REGISTER_D2   = 6, /* Virtual register 2 for immediates */
-	          REGISTER_NULL = 7; /* Zero register */
+	          REGISTER_NULL = 4; /* Internal zero register */
 
 	/*
 	 * Control line bits for pipeline source and destination modes.
 	 */
 	parameter DATA_R        = 0, /* Register file */
 	          DATA_IMM      = 1; /* Decoder-generated immediate */
-
-	/*
-	 * Control line bits for pipeline stage.
-	 */
-	parameter STAGE_FETCH   = 0, /* [F] Instruction Fetch */
-	          STAGE_DECODE  = 1, /* [D] Instruction Decode */
-	          STAGE_PARAM   = 2, /* [P] Parameter Bytes Fetch */
-	          STAGE_EXECUTE = 3, /* [X] Logic Execution (X) */
-	          STAGE_WRITE   = 4, /* [W] Write result to register / memory */
-	          STAGE_DELAY   = 5; /* [S] Delay to match original hardware */
-	          /* TODO Add memory stage */
 
 	/*
 	 * The correspondence from data control lines for ALU operations.
@@ -193,7 +180,6 @@ module CPU(
 	logic       decode_alu_enable;     /* Enable ALU in execute stage */
 	logic [7:0] decode_alu_mode;       /* ALU operation mode */
 	logic [1:0] decode_bytes;          /* Instruction byte length */
-	logic [6:0] decode_stage;          /* Next pipeline stage */
 	logic       decode_error;          /* Invalid instruction */
 
 	/*
@@ -205,17 +191,17 @@ module CPU(
 		decode_source_a_load = 1'b0;
 		decode_source_a_mode = DATA_R;
 		decode_source_a_index = REGISTER_A;
-		decode_source_a_imm = 8'b0000_0000;
+		decode_source_a_imm = 8'bxxxx_xxxx;
 
 		decode_source_b_fetch = 2'b00;
 		decode_source_b_load = 1'b0;
 		decode_source_b_mode = DATA_R;
 		decode_source_b_index = REGISTER_A;
-		decode_source_b_imm = 8'b0000_0000;
+		decode_source_b_imm = 8'bxxxx_xxxx;
 
 		decode_source_carry = 1'b0;
 
-		decode_branch_target = 8'b0000_0000;
+		decode_branch_target = 8'bxxxx_xxxx;
 		decode_branch_load = 2'b0;
 		decode_branch = 1'b0;
 
@@ -228,7 +214,6 @@ module CPU(
 		decode_alu_enable = 1'b1;
 
 		decode_bytes = 2'd1;
-		decode_stage = (1 << STAGE_PARAM);
 		decode_error = 1'b0;
 
 		/* Instructions are grouped by similarity in the decoding logic by
@@ -241,13 +226,13 @@ module CPU(
 			 */
 			8'b000_000_00: begin
 				/* NOP */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_alu_enable = 1'b0;
 			end
 
 			8'b001_000_00: begin
 				/* CLP: PSW_P = 0 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_P);
 				decode_status = 8'b0000_0000;
 				decode_alu_enable = 1'b0;
@@ -255,16 +240,16 @@ module CPU(
 
 			8'b010_000_00: begin
 				/* SEP: PSW_P = 1 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_P);
 				decode_status = (1 << PSW_P);
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_alu_enable = 1'b0;
 			end
 
 			8'b011_000_00: begin
 				/* CLC: PSW_C = 0 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_C);
 				decode_status = 8'b0000_0000;
 				decode_alu_enable = 1'b0;
@@ -272,7 +257,7 @@ module CPU(
 
 			8'b100_000_00: begin
 				/* SEC: PSW_C = 1 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_C);
 				decode_status = (1 << PSW_C);
 				decode_alu_enable = 1'b0;
@@ -280,7 +265,7 @@ module CPU(
 
 			8'b101_000_00: begin
 				/* CLI: PSW_I = 0 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_I);
 				decode_status = 8'b0000_0000;
 				decode_alu_enable = 1'b0;
@@ -288,7 +273,7 @@ module CPU(
 
 			8'b110_000_00: begin
 				/* SEI: PSW_I = 1 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_I);
 				decode_status = (1 << PSW_I);
 				decode_alu_enable = 1'b0;
@@ -296,38 +281,116 @@ module CPU(
 
 			8'b111_000_00: begin
 				/* CLV: PSW_V = 0 */
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_status_mask = (1 << PSW_V);
 				decode_status = 8'b0000_0000;
 				decode_alu_enable = 1'b0;
 			end
 
 			/*
-			 * Column A2: Conditional Relative Branch
+			 * Column A2: Conditional Relative Branches
 			 */
 			8'b000_100_00: begin
 				/* BPL: if (!PSW.N) PC += #i; */
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_N);
 				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = (1 << PSW_N);
+				decode_source_b_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_bytes = 2'd2;
 			end
 
-			/* XXX */
+			8'b001_100_00: begin
+				/* BMI: if (PSW.N) PC += #i; */
+				decode_alu_mode = (1 << ALU_ANDNOT);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_N);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
+
+			8'b010_100_00: begin
+				/* BVC: if (!PSW.V) PC += #i; */
+				decode_alu_mode = (1 << ALU_AND);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_V);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
+
+			8'b011_100_00: begin
+				/* BVC: if (PSW.V) PC += #i; */
+				decode_alu_mode = (1 << ALU_ANDNOT);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_V);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
+
+			8'b100_100_00: begin
+				/* BCC: if (!PSW.C) PC += #i; */
+				decode_alu_mode = (1 << ALU_AND);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_C);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
+
+			8'b101_100_00: begin
+				/* BCS: if (PSW.C) PC += #i; */
+				decode_alu_mode = (1 << ALU_ANDNOT);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_C);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
 
 			8'b110_100_00: begin
 				/* BNE: if (!PSW.Z) PC += #i; */
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_PSW;
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_Z);
 				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = (1 << PSW_Z);
+				decode_source_b_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
+				decode_bytes = 2'd2;
+			end
+
+			8'b111_100_00: begin
+				/* BNE: if (PSW.Z) PC += #i; */
+				decode_alu_mode = (1 << ALU_ANDNOT);
+				decode_source_a_mode = DATA_IMM;
+				decode_source_a_imm = (1 << PSW_Z);
+				decode_source_b_mode = DATA_IMM;
+				decode_source_b_imm = PSW;
+				decode_branch_load = 2'b01;
+				decode_branch = 1'b1;
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_bytes = 2'd2;
 			end
 
@@ -368,7 +431,7 @@ module CPU(
 				decode_alu_mode = (1 << ALU_SUB);
 				decode_source_a_index = REGISTER_A;
 				decode_source_b_fetch = 2'b01;
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_bytes = 2'd2;
 			end
 
@@ -396,7 +459,7 @@ module CPU(
 				decode_alu_mode = (1 << ALU_SUB);
 				decode_source_a_index = REGISTER_X;
 				decode_source_b_fetch = 2'b01;
-				decode_result_index = REGISTER_D1; /* Unused */
+				decode_result_index = REGISTER_NULL; /* Unused */
 				decode_bytes = 2'd2;
 			end
 
@@ -420,18 +483,15 @@ module CPU(
 	 **************************************************************************/
 
 	/*
-	 * Shared Pipeline State
-	 */
-	reg [6:0] stage;             /* Pipeline Stage (one-hot encoding) */
-
-	/*
 	 * State passed from Fetch (F) to Decode (D)
 	 */
+	reg        D_ready;          /* Fetch (F) output is ready for next stage. */
 	reg [15:0] D_pc;             /* Address of the fetched instruction */
 
 	/*
 	 * State passed from Decode (D) to Param (P)
 	 */
+	reg        P_ready;          /* Decode (D) output is ready for next stage. */
 	reg [15:0] P_pc;             /* Address of the fetched instruction */
 	reg [1:0]  P_data_A_fetch;   /* Input field A is a fetched immediate */
 	reg        P_data_A_load;    /* Input field A is a load address */
@@ -454,6 +514,7 @@ module CPU(
 	/*
 	 * State passed from Param (P) to Execute (X)
 	 */
+	reg        X_ready;          /* Param (P) output is ready for next stage. */
 	reg [15:0] X_pc;             /* Address following the current instruction */
 	reg [7:0]  X_data_A;         /* Input field A value */
 	reg [7:0]  X_data_B;         /* Input field B value */
@@ -470,6 +531,7 @@ module CPU(
 	/*
 	 * State passed from Execute (X) to Write-Back (W)
 	 */
+	reg        W_ready;          /* Execute (X) output is ready for next stage. */
 	reg [15:0] W_pc;             /* Address following the current instruction */
 	reg [7:0]  W_out;            /* Result of execute stage */
 	reg [2:0]  W_out_index;      /* Result output register index */
@@ -477,6 +539,16 @@ module CPU(
 	reg [7:0]  W_status;         /* Value of PSW at start of instruction */
 	reg [15:0] W_branch_target;  /* Signed relative branch target */
 	reg        W_branch;         /* Instruction is a branch */
+
+	/*
+	 * State passed from Write-Back (W) to Delay (S)
+	 */
+	reg        S_ready;          /* Write-Back (W) output is ready for next stage. */
+
+	/*
+	 * State passed from Delay (S) back to Fetch (F)
+	 */
+	reg        F_ready;          /* Execute (X) output is ready for next stage. */
 
 	/*
 	 * Implementation of the CPU pipeline. Pipeline stages may be skipped
@@ -497,7 +569,7 @@ module CPU(
 	 *
 	 * TODO This is a mess and a hack.
 	 */
-	assign out_ram_address = stage[STAGE_DECODE] ? (D_pc) : (D_pc + 1);
+	assign out_ram_address = D_ready ? (D_pc) : (D_pc + 1);
 
 	/*
 	 * Reset Logic
@@ -510,13 +582,6 @@ module CPU(
 			/* XXX Cleanup with final RAM */
 			ram_write <= 8'b0000_0000;
 			ram_write_enable <= 1'b0;
-
-			R[REGISTER_A] <= 8'b0000_0000;
-			R[REGISTER_X] <= 8'b0000_0000;
-			R[REGISTER_Y] <= 8'b0000_0000;
-			R[REGISTER_SP] <= 8'b0000_0000;
-			R[REGISTER_PSW] <= 8'b0000_0000;
-			R[REGISTER_NULL] <= 8'b0000_0000;
 		end
 	end
 
@@ -527,8 +592,8 @@ module CPU(
 	begin
 		if (reset == 1'b1) begin
 			D_pc <= 16'b0000_0000_0000_0000;
-			stage[STAGE_DECODE] <= 1'b0;
-		end else if (enable == 1'b1 && stage[STAGE_FETCH]) begin
+			D_ready <= 1'b0;
+		end else if (enable && F_ready) begin
 			D_pc <= PC;
 
 			/* Prepare to read the instruction from memory. Result will be
@@ -536,9 +601,9 @@ module CPU(
 			/* TODO */
 			ram_write_enable <= 1'b0;
 
-			stage[STAGE_DECODE] <= 1'b1;
+			D_ready <= 1'b1;
 		end else begin
-			stage[STAGE_DECODE] <= 1'b0;
+			D_ready <= 1'b0;
 		end
 	end
 
@@ -571,10 +636,10 @@ module CPU(
 			P_branch_load <= 2'b00;
 			P_branch <= 1'b0;
 
-			/* TODO */
-			stage[STAGE_PARAM] <= 1'b0;
 			W_old_status <= 8'b0000_0000;
-		end else if (enable == 1'b1 && stage[STAGE_DECODE]) begin
+
+			P_ready <= 1'b0;
+		end else if (enable && D_ready) begin
 			P_pc <= D_pc;
 
 			P_data_A_fetch <= decode_source_a_fetch;
@@ -615,11 +680,12 @@ module CPU(
 			P_bytes <= decode_bytes;
 
 			/* TODO */
-			W_old_status <= R[REGISTER_PSW];
+			W_old_status <= PSW;
 			enable <= ~decode_error;
-			stage[STAGE_PARAM] <= 1'b1;
+
+			P_ready <= 1'b1;
 		end else begin
-			stage[STAGE_PARAM] <= 1'b0;
+			P_ready <= 1'b0;
 		end
 	end
 
@@ -629,8 +695,6 @@ module CPU(
 	/* TODO Add back support for 3-byte decodings */
 	always @(posedge clock)
 	begin
-		/* TODO This could easily be combined with decode, but this simplifies
-		 *      the code a little for now. */
 		if (reset == 1'b1) begin
 			X_pc <= 16'b0000_0000_0000_0000;
 
@@ -648,8 +712,8 @@ module CPU(
 			X_branch_target <= 8'b0000_0000;
 			X_branch <= 1'b0;
 
-			stage[STAGE_EXECUTE] <= 1'b0;
-		end else if (enable == 1'b1 && stage[STAGE_PARAM]) begin
+			X_ready <= 1'b0;
+		end else if (enable && P_ready) begin
 			/* TODO This can't stay here if this stage becomes optional */
 			/* Branches are relative to the start of the following
 			 * instruction. So this logic always applies even with branching. */
@@ -682,10 +746,9 @@ module CPU(
 			X_bytes <= P_bytes;
 			X_branch <= P_branch;
 
-			/* TODO XXX */
-			stage[STAGE_EXECUTE] <= 1'b1;
+			X_ready <= 1'b1;
 		end else begin
-			stage[STAGE_EXECUTE] <= 1'b0;
+			X_ready <= 1'b0;
 		end
 	end
 
@@ -703,8 +766,8 @@ module CPU(
 			W_branch_target <= 16'b0000_0000_0000_0000;
 			W_branch <= 1'b0;
 
-			stage[STAGE_WRITE] <= 1'b0;
-		end else if (enable == 1'b1 && stage[STAGE_EXECUTE]) begin
+			W_ready <= 1'b0;
+		end else if (enable && X_ready) begin
 			if (X_alu_enable) begin
 				W_out <= alu_result;
 				/* TODO remaining bits */
@@ -725,11 +788,9 @@ module CPU(
 				W_branch_target <= 16'b0000_0000_0000_0000;
 			end
 
-
-			/* TODO XXX */
-			stage[STAGE_WRITE] <= 1'b1;
+			W_ready <= 1'b1;
 		end else begin
-			stage[STAGE_WRITE] <= 1'b0;
+			W_ready <= 1'b0;
 		end
 	end
 
@@ -740,10 +801,18 @@ module CPU(
 	begin
 		if (reset == 1'b1) begin
 			PC <= 16'b0000_0000_0000_0000;
-			stage[STAGE_DELAY] <= 1'b0;
-		end else if (enable == 1'b1 && stage[STAGE_WRITE]) begin
+			PSW <= 8'b0000_0000;
+
+			R[REGISTER_A] <= 8'b0000_0000;
+			R[REGISTER_X] <= 8'b0000_0000;
+			R[REGISTER_Y] <= 8'b0000_0000;
+			R[REGISTER_SP] <= 8'b0000_0000;
+			R[REGISTER_NULL] <= 8'b0000_0000;
+
+			S_ready <= 1'b0;
+		end else if (enable && W_ready) begin
 			R[W_out_index] <= W_out;
-			R[REGISTER_PSW] <= (W_old_status & ~W_status_mask) | (W_status & W_status_mask);
+			PSW <= (W_old_status & ~W_status_mask) | (W_status & W_status_mask);
 
 			/* Branches are taken when the status register has the 'Z' status
 			 * (result of operation was 0). */
@@ -753,9 +822,9 @@ module CPU(
 				PC <= W_pc;
 			end
 
-			stage[STAGE_DELAY] <= 1'b1;
+			S_ready <= 1'b1;
 		end else begin
-			stage[STAGE_DELAY] <= 1'b0;
+			S_ready <= 1'b0;
 		end
 	end
 
@@ -765,11 +834,12 @@ module CPU(
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			stage[STAGE_FETCH] <= 1'b1;
-		end else if (enable == 1'b1 && stage[STAGE_DELAY]) begin
-			stage[STAGE_FETCH] <= 1'b1;
+			/* Start pipeline in Fetch stage */
+			F_ready <= 1'b1;
+		end else if (enable && S_ready) begin
+			F_ready <= 1'b1;
 		end else begin
-			stage[STAGE_FETCH] <= 1'b0;
+			F_ready <= 1'b0;
 		end
 	end
 endmodule

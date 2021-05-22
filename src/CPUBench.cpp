@@ -1,3 +1,4 @@
+#include <string>
 #include <cstdint>
 
 #include "BasicBench.h"
@@ -27,7 +28,12 @@ public:
 		return (*this)->CPUBench__DOT__ram__DOT__memory;
 	}
 
-	void print()
+	const uint8_t *ram_data() const
+	{
+		return (*this)->CPUBench__DOT__ram__DOT__memory;
+	}
+
+	void print() const
 	{
 		printf("======== %d Ticks ========\n", this->time());
 		printf("A:      %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[0]);
@@ -39,7 +45,7 @@ public:
 		printf("D2:     %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[6]);
 		printf("PC:     %04x\n", (*this)->CPUBench__DOT__cpu__DOT__PC);
 		printf("----\n");
-		printf("Stage   %04x\n", (*this)->CPUBench__DOT__cpu__DOT__stage);
+		printf("Stage:  %s\n", this->pipeline_status().c_str());
 		printf("ALU:    %04x\n", (*this)->CPUBench__DOT__cpu__DOT__X_alu_mode);
 		printf("Br:     %01x\n", (*this)->CPUBench__DOT__cpu__DOT__W_branch);
 		printf("BrTgtR: %02x (+/-)\n", (*this)->CPUBench__DOT__cpu__DOT__X_branch_target);
@@ -51,7 +57,19 @@ public:
 		printf("\n");
 	}
 
-	void memory_dump()
+	std::string pipeline_status() const
+	{
+		std::string result;
+		result += (*this)->CPUBench__DOT__cpu__DOT__F_ready ? 'F' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__D_ready ? 'D' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__P_ready ? 'P' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__X_ready ? 'X' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__W_ready ? 'W' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__S_ready ? 'S' : '.';
+		return result;
+	}
+
+	void memory_dump() const
 	{
 		for (unsigned i = 0; i < 16; ++i) {
 			printf("%04x:", i * 16);
@@ -73,7 +91,7 @@ main(int argc, char **argv, char **env)
 
 	bench.reset();
 
-#if 0
+#if 1
 	assembler.ORA(0xFF);
 	assembler.AND(0x0F);
 	assembler.EORA(0x11);

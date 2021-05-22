@@ -40,9 +40,7 @@ public:
 		printf("X:      %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[1]);
 		printf("Y:      %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[2]);
 		printf("SP:     %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[3]);
-		printf("PSW:    %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[4]);
-		printf("D1:     %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[5]);
-		printf("D2:     %02x\n", (*this)->CPUBench__DOT__cpu__DOT__R[6]);
+		printf("PSW:    %02x\n", (*this)->CPUBench__DOT__cpu__DOT__PSW);
 		printf("PC:     %04x\n", (*this)->CPUBench__DOT__cpu__DOT__PC);
 		printf("----\n");
 		printf("Stage:  %s\n", this->pipeline_status().c_str());
@@ -63,9 +61,10 @@ public:
 		result += (*this)->CPUBench__DOT__cpu__DOT__F_ready ? 'F' : '.';
 		result += (*this)->CPUBench__DOT__cpu__DOT__D_ready ? 'D' : '.';
 		result += (*this)->CPUBench__DOT__cpu__DOT__P_ready ? 'P' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__L_ready ? 'L' : '.';
 		result += (*this)->CPUBench__DOT__cpu__DOT__X_ready ? 'X' : '.';
 		result += (*this)->CPUBench__DOT__cpu__DOT__W_ready ? 'W' : '.';
-		result += (*this)->CPUBench__DOT__cpu__DOT__S_ready ? 'S' : '.';
+		result += (*this)->CPUBench__DOT__cpu__DOT__Z_ready ? 'Z' : '.';
 		return result;
 	}
 
@@ -92,19 +91,19 @@ main(int argc, char **argv, char **env)
 	bench.reset();
 
 #if 1
-	assembler.ORA(0xFF);
-	assembler.AND(0x0F);
-	assembler.EORA(0x11);
+	//assembler.ORA(0xFF);
+	//assembler.AND(0x0F);
+	//assembler.EORA(0x11);
 	assembler.LDA(0x34);
 	assembler.ADC(0x10);
-	assembler.SEP();
-	assembler.SEC();
-	assembler.SEI();
+	//assembler.SEP();
+	//assembler.SEC();
+	//assembler.SEI();
 	assembler.CLP();
 	assembler.CLC();
 	assembler.CLI();
 	assembler.SBC(0x14);
-	assembler.BEQ(0xfe);
+	//assembler.BEQ(0xfe);
 	assembler.HLT();
 #else
 	assembler.LDA(0x10);

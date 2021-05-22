@@ -1,0 +1,24 @@
+BLOCK RESETPATHS;
+BLOCK ASYNCPATHS;
+
+LOCATE COMP "clock" SITE "G2";
+LOCATE COMP "reset" SITE "G3";
+
+LOCATE COMP "out_address[0]" SITE "H3";
+LOCATE COMP "out_address[1]" SITE "E1";
+LOCATE COMP "out_address[2]" SITE "E2";
+LOCATE COMP "out_address[3]" SITE "D1";
+LOCATE COMP "out_address[4]" SITE "D2";
+LOCATE COMP "out_address[5]" SITE "C1";
+LOCATE COMP "out_address[6]" SITE "C2";
+LOCATE COMP "out_address[7]" SITE "B2";
+LOCATE COMP "out_address[8]" SITE "R1";
+LOCATE COMP "out_address[9]" SITE "T1";
+LOCATE COMP "out_address[10]" SITE "R18";
+LOCATE COMP "out_address[11]" SITE "V1";
+LOCATE COMP "out_address[12]" SITE "U1";
+LOCATE COMP "out_address[13]" SITE "H16";
+LOCATE COMP "out_address[14]" SITE "E8";
+LOCATE COMP "out_address[15]" SITE "D8";
+
+LOCATE COMP "out_halted" SITE "D6";

@@ -52,7 +52,7 @@ build/$(1) : build/$(1).o build/lib$(1).a build/libverilated.a
 all-test: build/$(1)
 endef
 
-$(foreach what,$(MODULES),$(eval $(call GEN_verilator,$(what))))
+$(foreach what,$(BENCHES),$(eval $(call GEN_verilator,$(what))))
 $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
 
 ################################################################################
@@ -63,3 +63,12 @@ $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
 ice40:
 	yosys -p "read_verilog -sv src/Ice40_CPUBench.v; synth_ice40 -json build/Ice40_CPUBench.json"
 	nextpnr-ice40 --hx8k --package ct256 --json build/Ice40_CPUBench.json --pcf src/ice40.pcf --asc build/Ice40_CPUBench.asc
+
+################################################################################
+# Build Rules (ECP5)
+################################################################################
+
+.PHONY: ecp5
+ecp5:
+	yosys -p "read_verilog -sv src/ECP5_CPUBench.v; synth_ecp5 -json build/ECP5_CPUBench.json"
+	nextpnr-ecp5 --um-85k --package CABGA381 --json build/ECP5_CPUBench.json --lpf src/ecp5.lpf

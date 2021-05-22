@@ -61,5 +61,5 @@ $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
 
 .PHONY: ice40
 ice40:
-	yosys -p "read_verilog -sv src/CPU.v; synth_ice40 -json build/CPU.json"
-	nextpnr-ice40 --hx8k --package ct256 --json build/CPU.json --pcf src/ice40.pcf --asc build/CPU.asc
+	yosys -p "read_verilog -sv src/Ice40_CPUBench.v; synth_ice40 -json build/Ice40_CPUBench.json"
+	nextpnr-ice40 --hx8k --package ct256 --json build/Ice40_CPUBench.json --pcf src/ice40.pcf --asc build/Ice40_CPUBench.asc

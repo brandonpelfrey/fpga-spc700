@@ -632,17 +632,6 @@ module CPU(
 	 */
 
 	/*
-	 * Memory bus arbitration. The memory bus can be controlled by:
-	 *
-	 *  - Fetch (F) stage to read the instruction
-	 *  - Param (P) stage to read immediate values
-	 *  - Memory (M) stage to read/write memory results (TODO)
-	 *
-	 * TODO This is a mess and a hack.
-	 */
-	assign out_ram_address = D_ready ? (D_pc) : (D_pc + 1);
-
-	/*
 	 * Reset Logic
 	 */
 	always @(posedge clock)
@@ -994,4 +983,16 @@ module CPU(
 			F_ready <= 1'b0;
 		end
 	end
+
+	/*
+	 * Memory bus arbitration. The memory bus can be controlled by:
+	 *
+	 *  - Fetch (F) stage to read the instruction
+	 *  - Param (P) stage to read immediate values
+	 *  - Load (L) stage to read memory operands
+	 *  - Store (S) stage to write memory results
+	 *
+	 * TODO This is a mess and a hack.
+	 */
+	assign out_ram_address = D_ready ? (D_pc) : (D_pc + 1);
 endmodule

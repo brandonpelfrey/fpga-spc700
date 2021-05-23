@@ -14,6 +14,7 @@ using s16 = int16_t;
 const unsigned DSP_AUDIO_RATE = 32000;
 const unsigned DSP_CYCLES_PER_SAMPLE = 96;
 const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
+double global_time = 0;
 
 namespace Wave
 {
@@ -113,11 +114,49 @@ void dsp_test_wave_out(SPCDSPBench &bench)
   printf("Simulated %llu ticks\n", bench.time());
 }
 
+u32 get_lowest_set_index(u32 in)
+{
+  for (u32 res = 0; res < 32; res++)
+    if (in & (1 << res))
+      return res;
+  return 32;
+}
+
+void dsp_test_voice_states(SPCDSPBench &bench)
+{
+  global_time = 0;
+  bench.reset();
+
+  for (int i = 0; i < 80; ++i)
+  {
+    bench.tick();
+    global_time++;
+    printf("T %3u: ", i);
+
+    for (int v = 0; v < 8; ++v)
+    {
+      u16 vstate = get_lowest_set_index(bench.get()->voice_states_out[v]);
+      if (vstate == 15)
+        printf(". ");
+      else
+        printf("%X ", vstate);
+    }
+    printf("\n");
+  }
+  printf("Simulated %llu ticks\n", bench.time());
+}
+
+double sc_time_stamp()
+{
+  return global_time;
+}
+
 int main(int argc, char **argv, char **env)
 {
   Verilated::commandArgs(argc, argv);
-  SPCDSPBench bench;
 
-  dsp_test_wave_out(bench);
+  SPCDSPBench bench;
+  //dsp_test_wave_out(bench);
+  dsp_test_voice_states(bench);
   return 0;
 }

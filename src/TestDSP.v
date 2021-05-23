@@ -8,7 +8,9 @@ module TestDSP(
   input  [7:0] dsp_reg_address,
   input  [7:0] dsp_reg_data_in,
   output [7:0] dsp_reg_data_out,
-  input        dsp_reg_write_enable
+  input        dsp_reg_write_enable,
+
+  output [15:0] voice_states_out [7:0]
 );
 
 reg audio_valid;
@@ -40,7 +42,9 @@ DSP dsp(
   .audio_valid(audio_valid),
 
   .dac_out_l(dac_out_l),
-  .dac_out_r(dac_out_r)
+  .dac_out_r(dac_out_r),
+
+  .voice_states_out(voice_states_out)
 );
 
 endmodule

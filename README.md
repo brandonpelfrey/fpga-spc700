@@ -1,8 +1,8 @@
 # fpga-spc700
 
-### Build and Simulate
+### Build and Simulate DSP Voice
 ```
-make && ./obj_dir/VSimulatorTop
+make -j && ./build/DSPVoiceDecoder ./test_data/13_piano.brr && play ./build/dsp_voice_test_wave_out.wav
 ```
 
 ### Reference Info

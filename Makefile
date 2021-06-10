@@ -64,6 +64,14 @@ ice40:
 	yosys -p "read_verilog -sv src/Ice40_CPUBench.v; synth_ice40 -json build/Ice40_CPUBench.json"
 	nextpnr-ice40 --hx8k --package ct256 --json build/Ice40_CPUBench.json --pcf src/ice40.pcf --asc build/Ice40_CPUBench.asc
 
+.PHONY: ice40-dsp
+ice40-dsp:
+	yosys -p "read_verilog -sv src/DSP.v; synth_ice40 -json build/Ice40_TestDSP.json"
+
+.PHONY: ice40-dsp-decoder
+ice40-dsp-decoder:
+	yosys -p "read_verilog -sv src/DSPVoiceDecoder.v; synth_ice40 -json build/Ice40_DSPVoiceDecoder.json"
+
 ################################################################################
 # Build Rules (ECP5)
 ################################################################################
@@ -72,3 +80,7 @@ ice40:
 ecp5:
 	yosys -p "read_verilog -sv src/ECP5_CPUBench.v; synth_ecp5 -json build/ECP5_CPUBench.json"
 	nextpnr-ecp5 --um-85k --package CABGA381 --json build/ECP5_CPUBench.json --lpf src/ecp5.lpf
+
+.PHONY: ecp5-dsp-decoder
+ecp5-dsp-decoder:
+	yosys -p "read_verilog -sv src/DSPVoiceDecoder.v; synth_ecp5 -json build/ECP5_DSPVoiceDecoder.json"

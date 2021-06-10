@@ -39,10 +39,6 @@ class States(enum.Enum):
   OUTPUT_AND_WAIT = 4
   END = 5
 
-# class VoiceData:
-#   def __init__(self):
-#     self.cursor_i = 0
-
 class Decoder:
   READ_BUFFER_LENGTH = 8
 
@@ -104,6 +100,7 @@ class Decoder:
       self.filter_buffer[index0] = self.filter
       self.read_buffer  [index1] = twos_comp(nibble1 << self.range, self.range+4)
       self.filter_buffer[index1] = self.filter
+      
       if self.unused_samples >= 2:
         # We have four now, go to process
         self.state = States.PROCESS

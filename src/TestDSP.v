@@ -10,10 +10,8 @@ module TestDSP(
   output [7:0] dsp_reg_data_out,
   input        dsp_reg_write_enable,
 
-  output [15:0] voice_states_out [7:0]
+  output [8*4-1:0] voice_states_out
 );
-
-reg audio_valid;
 
 wire [15:0] address;
 wire [7:0] data;
@@ -39,7 +37,6 @@ DSP dsp(
   .clock(clock),
   .reset(reset),
   .idle(idle),
-  .audio_valid(audio_valid),
 
   .dac_out_l(dac_out_l),
   .dac_out_r(dac_out_r),

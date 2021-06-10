@@ -1,5 +1,0 @@
-module DSPVoice (
-  
-);
-  
-endmodule

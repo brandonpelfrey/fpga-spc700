@@ -48,12 +48,13 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
   // f * 2**(n / 12)
   // C Major (C E G C)
-  const unsigned pitch[] = {4096, 5161, 6137, 8192, 512, 512, 512, 512};
-  const unsigned vol[] = {};
+  const unsigned pitch[] = {4096, 5161, 6137, 8192, 2048, 1024, 512, 256};
+  const unsigned MAXVOL = 0xEF;
+  const unsigned vol[] = {MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8};
 
   for (int v = 0; v < 8; v++)
   {
-    const unsigned vpitch = pitch[v] / 2;
+    const unsigned vpitch = pitch[v];
 
     // Pitch low (x2)
     bench->dsp_reg_address = (v << 4) | 2;
@@ -69,20 +70,20 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
     // Volume Left (x0)
     bench->dsp_reg_address = (v << 4) | 0;
-    bench->dsp_reg_data_in = 0xEF / 5;
+    bench->dsp_reg_data_in = vol[v];
     bench->dsp_reg_write_enable = 1;
     bench.tick();
 
     // Volume Right (x1)
     bench->dsp_reg_address = (v << 4) | 1;
-    bench->dsp_reg_data_in = 0xEF / 5;
+    bench->dsp_reg_data_in = vol[v];
     bench->dsp_reg_write_enable = 1;
     bench.tick();
   }
 
   bench->dsp_reg_write_enable = 0;
 
-  for (int i = 0; i < 64 * 32000 * 1; ++i)
+  for (int i = 0; i < 64 * 32000 * 2; ++i)
   {
     const unsigned major_step = bench->TestDSP__DOT__dsp__DOT__major_step;
 

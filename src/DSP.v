@@ -192,7 +192,7 @@ always @(posedge clock)
   end
 
 localparam VOICE_CYCLES = 12;
-localparam [5:0] VOICE_RESUME [7:0]  = '{ 6'd26, 6'd22, 6'd18, 6'd14, 6'd10, 6'd6, 6'd2, 6'd62 };
+localparam [5:0] VOICE_RESUME [7:0] = '{ 6'd26, 6'd22, 6'd18, 6'd14, 6'd10, 6'd6, 6'd2, 6'd62 };
 
 
 // Combinatorial mixing logic
@@ -200,12 +200,26 @@ localparam [5:0] VOICE_RESUME [7:0]  = '{ 6'd26, 6'd22, 6'd18, 6'd14, 6'd10, 6'd
 reg signed [31:0] dac_sample_l;
 reg signed [31:0] dac_sample_r;
 always @* begin
-  dac_sample_l = $signed(decoder_output[0]) * $signed(VxVOLL[0]) / $signed(128);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(VxVOLL[1]) / $signed(128);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(VxVOLL[2]) / $signed(128);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(VxVOLL[3]) / $signed(128);
+  dac_sample_l =                $signed(decoder_output[0]) * $signed(VxVOLL[0]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(VxVOLL[1]); 
+  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(VxVOLL[2]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(VxVOLL[3]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[4]) * $signed(VxVOLL[4]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[5]) * $signed(VxVOLL[5]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[6]) * $signed(VxVOLL[6]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[7]) * $signed(VxVOLL[7]);
+  dac_sample_l = dac_sample_l >>> 7;
+  
 
-  dac_sample_r = $signed(decoder_output[0]) * $signed(VxVOLR[0]) / $signed(128);
+  dac_sample_r =                $signed(decoder_output[0]) * $signed(VxVOLR[0]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[1]) * $signed(VxVOLR[1]); 
+  dac_sample_r = dac_sample_r + $signed(decoder_output[2]) * $signed(VxVOLR[2]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[3]) * $signed(VxVOLR[3]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[4]) * $signed(VxVOLR[4]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[5]) * $signed(VxVOLR[5]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[6]) * $signed(VxVOLR[6]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[7]) * $signed(VxVOLR[7]);
+  dac_sample_r = dac_sample_r >>> 7;
 end
 
 reg [2:0] current_voice;

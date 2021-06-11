@@ -29,7 +29,7 @@ build/libverilated.a : $(VERILATOR_INC)/verilated.cpp
 define GEN_verilator
 build/build-$(1)/V$(1).cpp: $(wildcard src/*.v)
 	mkdir -p build/build-$(1)
-	verilator $(VERILATOR_FLAGS) -Isrc -Mdir build/build-$(1) --top-module $(1) --exe src/$(1).v
+	verilator $(VERILATOR_FLAGS) -Isrc -Mdir build/build-$(1) -O3 --top-module $(1) --exe src/$(1).v
 	touch $$@
 
 build/lib$(1).a: build/build-$(1)/V$(1).cpp

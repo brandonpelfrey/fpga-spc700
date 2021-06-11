@@ -43,8 +43,8 @@ module DSP (
   voice_states_out
 );
 
-inout [15:0] ram_address;
-inout [7:0] ram_data;
+output reg [15:0] ram_address;
+input  [7:0] ram_data;
 output ram_write_enable;
 input  [7:0] dsp_reg_address;
 input  [7:0] dsp_reg_data_in;
@@ -52,13 +52,10 @@ output [7:0] dsp_reg_data_out;
 input        dsp_reg_write_enable;
 input clock;
 input reset;
-output signed [15:0] dac_out_l;
-output signed [15:0] dac_out_r;
+output reg signed [15:0] dac_out_l;
+output reg signed [15:0] dac_out_r;
 output idle;
-output reg [8*4 - 1:0] voice_states_out;
-
-reg signed [15:0] dac_sample_l;
-reg signed [15:0] dac_sample_r;
+output [8*4 - 1:0] voice_states_out;
 
 genvar gi;
 integer i;
@@ -67,7 +64,7 @@ parameter CLOCKS_PER_SAMPLE = 32 * 2; // 32 "steps" * 3 clock cycles each
 parameter N_VOICES = 8;
 
 parameter N_MAJOR_STEPS = 64;
-reg [N_MAJOR_STEPS-1:0] major_step;
+reg [5:0] major_step;
 
 ///////////////////////////////////////////////////////////////////////////////
 // DSP Registers
@@ -126,8 +123,8 @@ always @(posedge clock) begin
     case (dsp_reg_address[3:0])
       4'h0: VxVOLL[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;  
       4'h1: VxVOLR[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
-      4'h2: VxPL[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
-      4'h3: VxPH[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
+      4'h2: VxPL[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
+      4'h3: VxPH[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
       4'h8: VxENVX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in & 8'b0111_1111;  
       default: begin end
     endcase
@@ -137,11 +134,36 @@ end
 assign ram_write_enable = 0;
 //////////////////////////////////////////////
 
-//DSPVoiceDecoder decoder(clock, reset, voice_states_out[3:0]);
+wire [15:0] decoder_ram_address [7:0];
+wire decoder_write_requests [7:0];
+wire signed [15:0] decoder_output [7:0];
+wire decoder_reached_end [7:0];
+reg decoder_advance_trigger [7:0];
+wire [15:0] decoder_cursor [7:0];
 
+// Form the pitch for each voice from registers
+wire [13:0] decoder_pitch [7:0];
+for(gi=0; gi<8; gi=gi+1)
+  assign decoder_pitch[gi] = {VxPH[gi][5:0], VxPL[gi][7:0]};
 
+// Used to control whether clock ticks occur for a given voice. This is used
+// during initial reset
+reg [7:0] voice_clock_en = 8'b11111111;
 
-
+DSPVoiceDecoder decoders [7:0] (
+  {8{clock}} & voice_clock_en[7:0],
+  {8{reset}},
+  voice_states_out,
+  decoder_ram_address,
+  ram_data,
+  decoder_write_requests,
+  16'b0,
+  16'b0,
+  decoder_pitch,
+  decoder_output,
+  decoder_reached_end,
+  decoder_advance_trigger,
+  decoder_cursor);
 
 //////////////////////////////////////////////
 
@@ -153,42 +175,84 @@ always @(posedge clock)
         VxENVX[gi] <= 8'b01111111;
         VxVOLL[gi] <= 8'b01111111 / 4;
         VxVOLR[gi] <= 8'b01111111 / 4;
-        voice_states_out[4*gi+3:4*gi] <= 0;   
     end
   end
 end
 
-// Clocked logic
+// Clocked logic - Reset
 always @(posedge clock)
-	begin
+  if (reset == 1'b1) begin
+    // Global DSP reset logic
+    major_step <= 63;
 
-  //   $monitor("%03t: major %h VS[0] %h VS[1] %h VS[2] %h VS[3] %h VS[4] %h VS[5] %h VS[6] %h VS[7] %h ", 
-  // $time, major_step, voice_state[0], voice_state[1], voice_state[2], voice_state[3], voice_state[4], 
-  // voice_state[5], voice_state[6], voice_state[7]);
-
-		if (reset == 1'b1) begin
-      // FIXME: Ideally, this starts at 0. I'm unsure why this needs to start at 28 
-      // in order to get V0 starting on the first output. :\
-      major_step <= 1 << 28;
-
-    end else begin
-      // TODO
+    // Additional reset logic, per-voice.
+    for(i=0; i<8; i=i+1) begin
+      decoder_advance_trigger[i] <= i == 0 ? 1 : 0;
     end
-    // End of voice state logic
-
-    // DSP FSM logic
-    case (1'b1)
-      major_step[N_MAJOR_STEPS-1]: begin
-        dac_sample_l <= 0;
-        dac_sample_r <= 0;
-      end
-    endcase
   end
 
+localparam VOICE_CYCLES = 12;
+localparam [5:0] VOICE_RESUME [7:0]  = '{ 6'd26, 6'd22, 6'd18, 6'd14, 6'd10, 6'd6, 6'd2, 6'd62 };
 
+
+// Combinatorial mixing logic
+// Combinatorial circuit continuously feeds into 'sample' which is latched into dac_out at M63
+reg signed [31:0] dac_sample_l;
+reg signed [31:0] dac_sample_r;
+always @* begin
+  dac_sample_l = $signed(decoder_output[0]) * $signed(VxVOLL[0]) / $signed(128);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(VxVOLL[1]) / $signed(128);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(VxVOLL[2]) / $signed(128);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(VxVOLL[3]) / $signed(128);
+
+  dac_sample_r = $signed(decoder_output[0]) * $signed(VxVOLR[0]) / $signed(128);
+end
+
+reg [2:0] current_voice;
+assign ram_address = decoder_ram_address[current_voice];
+
+// Clocked logic - Non-Reset
+always @(posedge clock)
+if (reset == 0'b0) begin
+  //$display("xxx RAM %h %h", ram_address, ram_data);
+
+  major_step <= major_step + 1;
+
+  // Enable and disable clocking for each voice at the right times
+  for(i=0; i<8; i=i+1) begin
+    // Start each voice at a predetermined time in the schedule. All voice logic
+    // is disabled at the end of the schedule and then the process repeats next
+    // schedule.
+    if(major_step == VOICE_RESUME[i]) begin
+      decoder_advance_trigger[i] <= 1;
+      current_voice <= i[2:0];
+    end
+
+    if(decoder_advance_trigger[i])
+      decoder_advance_trigger[i] <= 0;
+  end
+
+  // DSP FSM logic
+  case (major_step)
+
+    6'd62: begin
+      // Turn off all voices
+      // for(i=0; i<8; i=i+1)  voice_clock_en[i] <= 0;
+    end
+
+    6'd63: begin
+      // for(i=0; i<8; i=i+1)
+      //   $write("L/R %h/%h ", VxVOLL[i], VxVOLR[i]);
+      // $display("");
+      // $display("%d", dac_sample_l[15:0]);
+      dac_out_l <= dac_sample_l[15:0];
+      dac_out_r <= dac_sample_r[15:0];
+    end
+    default: begin end
+  endcase
+end
+	
 assign idle = 0;
 assign dsp_reg_data_out = 0;
-assign dac_out_l = dac_sample_l;
-assign dac_out_r = dac_sample_r;
   
 endmodule

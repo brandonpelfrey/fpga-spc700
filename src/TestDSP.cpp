@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <vector>
+#include <array>
 
 #include "BasicBench.h"
 #include "VTestDSP.h"
@@ -10,28 +11,122 @@ const unsigned DSP_CYCLES_PER_SAMPLE = 96;
 const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
 double global_time = 0;
 
+class RAM
+{
+private:
+  std::array<u8, 64 * 1024> data;
+
+public:
+  void put(u16 addr, u8 val) { data[addr] = val; }
+  u8 get(u16 addr) { return data[addr]; }
+
+  void load(const char *path)
+  {
+    auto file = fopen(path, "rb");
+    fseek(file, 0, SEEK_END);
+    const u64 file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    fread(&data[0], sizeof(u8), file_size, file);
+    fclose(file);
+  }
+};
+
 class SPCDSPBench : public BasicBench<VTestDSP>
 {
 public:
 };
 
-void dsp_test_wave_out(SPCDSPBench &bench)
+const char *const VOICE_STATES[] = {"i", "H", "D", "P", ".", "E"};
+
+void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 {
   bench.reset();
-  bench.tick();
-
   WaveRecorder recorder;
-  for (int i = 0; i < DSP_CYCLES_PER_SEC; ++i)
-  {
-    if (i % DSP_CYCLES_PER_SAMPLE == 0)
-    {
-      auto dsp_test = bench.get();
-      recorder.push(bench.get()->dac_out_l, bench.get()->dac_out_r);
-    }
 
+  RAM ram;
+  ram.load(brr_file_path);
+
+  // f * 2**(n / 12)
+  // C Major (C E G C)
+  const unsigned pitch[] = {4096, 5161, 6137, 8192, 512, 512, 512, 512};
+  const unsigned vol[] = {};
+
+  for (int v = 0; v < 8; v++)
+  {
+    const unsigned vpitch = pitch[v] / 2;
+
+    // Pitch low (x2)
+    bench->dsp_reg_address = (v << 4) | 2;
+    bench->dsp_reg_data_in = vpitch & 0xFF;
+    bench->dsp_reg_write_enable = 1;
+    bench.tick();
+
+    // Pitch high (x3)
+    bench->dsp_reg_address = (v << 4) | 3;
+    bench->dsp_reg_data_in = (vpitch >> 8) & 0xFF;
+    bench->dsp_reg_write_enable = 1;
+    bench.tick();
+
+    // Volume Left (x0)
+    bench->dsp_reg_address = (v << 4) | 0;
+    bench->dsp_reg_data_in = 0xEF / 5;
+    bench->dsp_reg_write_enable = 1;
+    bench.tick();
+
+    // Volume Right (x1)
+    bench->dsp_reg_address = (v << 4) | 1;
+    bench->dsp_reg_data_in = 0xEF / 5;
+    bench->dsp_reg_write_enable = 1;
     bench.tick();
   }
-  recorder.save("./build/test/dsp_test_wave_out.wav");
+
+  bench->dsp_reg_write_enable = 0;
+
+  for (int i = 0; i < 64 * 32000 * 1; ++i)
+  {
+    const unsigned major_step = bench->TestDSP__DOT__dsp__DOT__major_step;
+
+    // Logging
+    if (1)
+    {
+      if (major_step == 0)
+      {
+        printf("-------------------------------------\n");
+        printf("                      0 1 2 3 4 5 6 7 G\n");
+      }
+      printf("[%08u] : major %2u ", i, major_step);
+      for (int v = 0; v < 8; v++)
+      {
+        const unsigned voice_state = (bench->voice_states_out >> (v * 4)) & 0b1111;
+        printf("%s ", VOICE_STATES[voice_state]);
+      }
+      printf(". | ");
+      for (int v = 0; v < 8; v++)
+      {
+        const unsigned pitch = bench->TestDSP__DOT__dsp__DOT__decoder_pitch[v];
+        printf("%6u ", pitch);
+      }
+      {
+        const unsigned current_voice = bench->TestDSP__DOT__dsp__DOT__current_voice;
+        const unsigned ram_address = bench->ram_address;
+        printf("current_voice %u ram_addr 0x%0X", current_voice, ram_address);
+      }
+      printf("\n");
+    }
+
+    if (major_step == 63)
+    {
+      recorder.push(bench->dac_out_l, bench->dac_out_r);
+    }
+
+    //////////////////////
+
+    bench.tick();
+
+    // Settle RAM access
+    bench->ram_data = ram.get(bench->ram_address);
+  }
+  recorder.save("./build/dsp_test_wave_out.wav");
   printf("Simulated %llu ticks\n", bench.time());
 }
 
@@ -52,7 +147,13 @@ int main(int argc, char **argv, char **env)
 {
   Verilated::commandArgs(argc, argv);
 
+  if (argc < 2)
+  {
+    printf("Usage: %s brr_file_path\n", argv[0]);
+    exit(1);
+  }
+
   SPCDSPBench bench;
-  dsp_test_wave_out(bench);
+  dsp_test_wave_out(bench, argv[1]);
   return 0;
 }

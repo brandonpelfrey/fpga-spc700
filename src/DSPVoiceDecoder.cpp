@@ -35,7 +35,7 @@ class DSPVoiceBench : public BasicBench<VDSPVoiceDecoder>
 {
 };
 
-static char *STATE_NAMES[] = {
+static const char *const STATE_NAMES[] = {
     "INIT",
     "HEADER",
     "DATA",
@@ -57,7 +57,6 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
   bench.reset();
   WaveRecorder recorder;
 
-  bool advance_set = false;
   unsigned samples = 0;
   for (int i = 0; i < 200000 && samples < 32000; ++i)
   {
@@ -75,17 +74,15 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
     bench.tick();
 
     // When we're in the OUTPUT_AND_WAIT state, we need to trigger a pulse in advance_trigger to get our next sample.
-    if (!advance_set && voice->state == 4)
+    if (!voice->advance_trigger && voice->state == 4)
     {
       voice->advance_trigger = 1;
-      advance_set = true;
       recorder.push(output, output);
       samples++;
     }
-    else if (advance_set)
+    else if (voice->advance_trigger)
     {
       voice->advance_trigger = 0;
-      advance_set = false;
     }
   }
   recorder.save("./build/dsp_voice_test_wave_out.wav");
@@ -108,7 +105,6 @@ int main(int argc, char **argv, char **env)
   }
 
   DSPVoiceBench bench;
-  //dsp_test_wave_out(bench);
   dsp_test_wave_out(bench, argv[1]);
   return 0;
 }

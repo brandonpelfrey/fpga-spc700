@@ -16,10 +16,6 @@ module DSPVoiceDecoder (
 );
 
 ////////////////////////////////////////
-// EXPECTED TO BE OVERRIDEN OUTSIDE
-parameter voice_num = 0;
-
-////////////////////////////////////////
 // Internal constants
 parameter READ_BUFFER_BYTES = 8;
 
@@ -29,7 +25,7 @@ input clock;
 input reset;
 output reg [3:0] state;
 output reg [15:0] ram_address;
-inout reg [7:0] ram_data;
+input reg [7:0] ram_data;
 output reg ram_read_request;
 input [15:0] start_address;
 input [15:0] loop_address;
@@ -62,15 +58,6 @@ wire [1:0] filter = header[3:2];
 wire final_block_do_end  = header_end & (!header_loop);
 wire final_block_do_loop = header_end & header_loop;
 
-// At any given point, cursor is between two nibbles X, Y such that X <= cursor < Y in
-// the timeline.
-
-// parameter [3:0] FILTER_A_NUM =   {8'd0, 8'd15, 8'd61, 8'd115};
-// parameter [3:0] FILTER_A_SHIFT = {8'd0, 8'd4, 8'd5, 8'd6};
-
-// parameter [3:0] FILTER_B_NUM = {0, 0, -15, -13};
-// parameter [3:0] FILTER_B_SHIFT = {0, 0, 4, 4};
-
 parameter STATE_INIT = 0,
           STATE_READ_HEADER = 1,
           STATE_READ_DATA = 2,
@@ -83,6 +70,7 @@ wire [2:0] rbi1 = (read_buffer_index + 1) & 7;
 
 always @(posedge clock) begin
   if(reset) begin
+    $display("RESET %m");
     cursor_i <= 0;
     cursor <= {2'b0, pitch} + 4096;
     state <= STATE_INIT;
@@ -116,10 +104,13 @@ always @(posedge clock) begin
 
       ///////////////////////////////////////////////////////////////////////////////////
       STATE_INIT: begin
-        ram_address      <= start_address;
-        ram_read_request <= 1;
-        state            <= STATE_READ_HEADER;
-        reached_end      <= 0;
+        if(advance_trigger) begin
+          ram_address      <= start_address;
+          ram_read_request <= 1;
+          state            <= STATE_READ_HEADER;
+          reached_end      <= 0;
+          //$display("INIT %m cursor %d", cursor);
+        end
       end
 
       ///////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +135,7 @@ always @(posedge clock) begin
         block_index <= block_index + 1;
 
         if (unused_samples >= 2) begin
+          //$display("DATA: %m cursor %d", cursor);
           state            <= (cursor >= 4096) ? STATE_PROCESS_SAMPLE : STATE_OUTPUT_AND_WAIT;
           ram_read_request <= 0;
         end else begin

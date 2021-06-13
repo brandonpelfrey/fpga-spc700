@@ -47,7 +47,7 @@ reg        [1:0]  filter_buffer [7:0];
 
 reg [2:0] read_buffer_index;
 reg [3:0] block_index;
-reg signed [15:0] previous_samples [1:0];
+reg signed [15:0] previous_samples [3:0];
 
 // Headers for current bytes being decoded vs next
 reg [7:0] header;
@@ -154,10 +154,12 @@ always @(posedge clock) begin
       ///////////////////////////////////////////////////////////////////////////////////
       STATE_PROCESS_SAMPLE: begin
         // We can only be in this state if cursor >= 4096 in the cursor.
+        previous_samples[3] <= previous_samples[2];
+        previous_samples[2] <= previous_samples[1];
         previous_samples[1] <= previous_samples[0];
         previous_samples[0] <= filter_out;
         cursor              <= cursor - 4096;
-        cursor_i            <= (cursor_i + 1) & 7;
+        cursor_i            <= (cursor_i + 1) & 3'b111;
         unused_samples      <= unused_samples - 1;
 
         // Come back to this state if we need to do this again. Otherwise, output.
@@ -167,12 +169,16 @@ always @(posedge clock) begin
       ///////////////////////////////////////////////////////////////////////////////////
       STATE_OUTPUT_AND_WAIT: begin
 
+        current_output <= current_output_x[15:0];
+
+        // $display("cursor %d rbi %d cursor_i %d PS [%d : %d : %d : %d]", cursor, read_buffer_index, cursor_i, previous_samples[0], previous_samples[1], previous_samples[2], previous_samples[3]);
+
         // Wait here until a signal to advance occurs
         if (advance_trigger) begin
           cursor <= cursor + {2'b0, pitch};
           
           if (unused_samples >= 4) begin
-            state <= (cursor >= 4096) ? STATE_PROCESS_SAMPLE : STATE_OUTPUT_AND_WAIT;
+            state <= ( (cursor + {2'b0, pitch}) >= 4096) ? STATE_PROCESS_SAMPLE : STATE_OUTPUT_AND_WAIT;
           end else begin
             if (block_index == 8) begin
               state            <= final_block_do_end  ? STATE_END    : STATE_READ_HEADER;
@@ -220,12 +226,14 @@ always @* begin
 end
 
 // Linear interpolation of the two samples surrounding the cursor. Use more bits for precision.
+//  PS[1] ....... PS[0]
+//           ^
+//         cursor
 reg signed [31:0] current_output_x;
 always @* begin
-  current_output_x =                    $signed(previous_samples[0]) * $signed(cursor[11:0]);
-  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed(4095 - cursor[11:0]);
-  current_output_x = current_output_x >>> 11;
-  current_output   = current_output_x[15:0];
+  current_output_x =                    $signed(previous_samples[0]) * $signed({1'b0, cursor[11:0]});
+  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed({1'b0, 12'd4095 - cursor[11:0]});
+  current_output_x = current_output_x >>> 12;
 end
 
 endmodule

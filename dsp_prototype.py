@@ -178,7 +178,7 @@ def test(brr_data, loop_offset):
   decoder = Decoder(start_addr, loop_addr)
 
   # Modify the pitch/playback speed if desired
-  pitch = 4096 * 2**0  
+  pitch = 4096 / 4
 
   # It's important to start at pitch + 4096 to consume the starting sample in the waveform
   decoder.cursor = pitch + 4096

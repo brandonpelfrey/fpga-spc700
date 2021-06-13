@@ -50,11 +50,12 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
   // C Major (C E G C)
   const unsigned pitch[] = {4096, 5161, 6137, 8192, 2048, 1024, 512, 256};
   const unsigned MAXVOL = 0xEF;
-  const unsigned vol[] = {MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8, MAXVOL / 8};
+  const unsigned Q = MAXVOL / 8;
+  const unsigned vol[] = {Q, Q, Q, 0, 0, 0, 0, 0 };
 
   for (int v = 0; v < 8; v++)
   {
-    const unsigned vpitch = pitch[v];
+    const unsigned vpitch = pitch[v] * 1 / 8;
 
     // Pitch low (x2)
     bench->dsp_reg_address = (v << 4) | 2;
@@ -83,7 +84,7 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
   bench->dsp_reg_write_enable = 0;
 
-  for (int i = 0; i < 64 * 32000 * 2; ++i)
+  for (int i = 0; i < 64 * 32000 * 3; ++i)
   {
     const unsigned major_step = bench->TestDSP__DOT__dsp__DOT__major_step;
 

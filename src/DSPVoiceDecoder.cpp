@@ -50,7 +50,7 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
   ram.load(brr_path);
 
   const auto voice = bench.get();
-  voice->pitch = 4096;
+  voice->pitch = 3000;
   voice->start_address = 0;
   // TODO: Loop point is not properly set, so loop will happen at the beginning
 
@@ -69,6 +69,11 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
 
     if (voice->state == 5)
       break;
+
+    if(i==0)
+      voice->advance_trigger = 1;
+    if(i==1)
+      voice->advance_trigger = 0;
 
     voice->ram_data = ram.get(voice->ram_address);
     bench.tick();

@@ -115,10 +115,10 @@ always @(*) begin
     8'h?8: reg_data_out = {1'b0, VxENVX[dsp_reg_address[6:4]][6:0]};  
     8'h?9: reg_data_out = {1'b0, VxOUTX[dsp_reg_address[6:4]][6:0]};
 
-    // 8'h0C: reg_data_out = MVOLL;
-    // 8'h1C: reg_data_out = MVOLR;
-    // 8'h2C: reg_data_out = EVOLL;
-    // 8'h3C: reg_data_out = EVOLR;
+    8'h0C: reg_data_out = MVOLL;
+    8'h1C: reg_data_out = MVOLR;
+    8'h2C: reg_data_out = EVOLL;
+    8'h3C: reg_data_out = EVOLR;
     default: reg_data_out = 0;
   endcase
 end
@@ -134,10 +134,10 @@ always @(posedge clock) begin
       8'h?8: VxENVX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in & 8'b0111_1111;  
       8'h?9: VxOUTX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
 
-      // 8'h0C: MVOLL <= dsp_reg_data_in;
-      // 8'h1C: MVOLR <= dsp_reg_data_in;
-      // 8'h2C: EVOLL <= dsp_reg_data_in;
-      // 8'h3C: EVOLR <= dsp_reg_data_in;
+      8'h0C: MVOLL <= dsp_reg_data_in;
+      8'h1C: MVOLR <= dsp_reg_data_in;
+      8'h2C: EVOLL <= dsp_reg_data_in;
+      8'h3C: EVOLR <= dsp_reg_data_in;
       default: begin end
     endcase
   end
@@ -223,7 +223,8 @@ always @* begin
   dac_sample_l = dac_sample_l + $signed(decoder_output[6]) * $signed(VxVOLL[6]);
   dac_sample_l = dac_sample_l + $signed(decoder_output[7]) * $signed(VxVOLL[7]);
   dac_sample_l = dac_sample_l >>> 7;
-  
+
+  dac_sample_l = (dac_sample_l * $signed(MVOLL)) >>> 7;
 
   dac_sample_r =                $signed(decoder_output[0]) * $signed(VxVOLR[0]);
   dac_sample_r = dac_sample_r + $signed(decoder_output[1]) * $signed(VxVOLR[1]); 
@@ -234,6 +235,8 @@ always @* begin
   dac_sample_r = dac_sample_r + $signed(decoder_output[6]) * $signed(VxVOLR[6]);
   dac_sample_r = dac_sample_r + $signed(decoder_output[7]) * $signed(VxVOLR[7]);
   dac_sample_r = dac_sample_r >>> 7;
+
+  dac_sample_r = (dac_sample_r * $signed(MVOLR)) >>> 7;
 end
 
 reg [2:0] current_voice;
@@ -263,16 +266,7 @@ if (reset == 0'b0) begin
   // DSP FSM logic
   case (major_step)
 
-    6'd62: begin
-      // Turn off all voices
-      // for(i=0; i<8; i=i+1)  voice_clock_en[i] <= 0;
-    end
-
     6'd63: begin
-      // for(i=0; i<8; i=i+1)
-      //   $write("L/R %h/%h ", VxVOLL[i], VxVOLR[i]);
-      // $display("");
-      // $display("%d", dac_sample_l[15:0]);
       dac_out_l <= dac_sample_l[15:0];
       dac_out_r <= dac_sample_r[15:0];
     end

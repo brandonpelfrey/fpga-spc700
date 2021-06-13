@@ -70,7 +70,6 @@ wire [2:0] rbi1 = (read_buffer_index + 1) & 7;
 
 always @(posedge clock) begin
   if(reset) begin
-    $display("RESET %m");
     cursor_i <= 0;
     cursor <= {2'b0, pitch} + 4096;
     state <= STATE_INIT;

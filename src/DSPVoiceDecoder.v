@@ -191,7 +191,6 @@ always @(posedge clock) begin
           end
 
         end
-
       end
 
       ///////////////////////////////////////////////////////////////////////////////////
@@ -231,7 +230,7 @@ end
 reg signed [31:0] current_output_x;
 always @* begin
   current_output_x =                    $signed(previous_samples[0]) * $signed({1'b0, cursor[11:0]});
-  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed({1'b0, 12'd4095 - cursor[11:0]});
+  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed({1'b0, 13'd4096 - cursor[11:0]});
   current_output_x = current_output_x >>> 12;
 end
 

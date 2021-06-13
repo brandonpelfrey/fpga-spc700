@@ -223,8 +223,8 @@ end
 reg signed [31:0] current_output_x;
 always @* begin
   current_output_x =                    $signed(previous_samples[0]) * $signed(cursor[11:0]);
-  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed(4096 - cursor[11:0]);
-  current_output_x = current_output_x / 4096;
+  current_output_x = current_output_x + $signed(previous_samples[1]) * $signed(4095 - cursor[11:0]);
+  current_output_x = current_output_x >>> 11;
   current_output   = current_output_x[15:0];
 end
 

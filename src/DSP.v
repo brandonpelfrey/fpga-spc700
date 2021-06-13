@@ -78,7 +78,7 @@ reg [7:0] VxADSR1 [N_VOICES-1:0];    // $x5 ADSR - part 1
 reg [7:0] VxADSR2 [N_VOICES-1:0];    // $x6 ADSR - part 2
 reg [7:0] VxGAIN  [N_VOICES-1:0];    // $x7 GAIN
 reg [7:0] VxENVX  [N_VOICES-1:0];    // $x8 Current envelope value for Voice X.
-reg [7:0] VxOUTX  [N_VOICES-1:0];    // $x8 Value after envelope mult, but before VOL mult
+reg [7:0] VxOUTX  [N_VOICES-1:0];    // $x9 Value after envelope mult, but before VOL mult
 
 reg [7:0] MVOLL; // $0C Main Volume L
 reg [7:0] MVOLR; // $1C Main Volume R
@@ -107,12 +107,18 @@ assign dsp_reg_data_out = reg_data_out;
 
 // Read reg
 always @(*) begin
-  case (dsp_reg_address[3:0])
-    4'h0: reg_data_out = VxVOLL[ dsp_reg_address[6:4] ];  
-    4'h1: reg_data_out = VxVOLR[ dsp_reg_address[6:4] ];  
-    4'h2: reg_data_out = VxPL[ dsp_reg_address[6:4] ];
-    4'h3: reg_data_out = VxPH[ dsp_reg_address[6:4] ];
-    4'h8: reg_data_out = {1'b0, VxENVX[dsp_reg_address[6:4]][6:0]};  
+  casez (dsp_reg_address)
+    8'h?0: reg_data_out = VxVOLL[ dsp_reg_address[6:4] ];  
+    8'h?1: reg_data_out = VxVOLR[ dsp_reg_address[6:4] ];  
+    8'h?2: reg_data_out = VxPL[ dsp_reg_address[6:4] ];
+    8'h?3: reg_data_out = VxPH[ dsp_reg_address[6:4] ];
+    8'h?8: reg_data_out = {1'b0, VxENVX[dsp_reg_address[6:4]][6:0]};  
+    8'h?9: reg_data_out = {1'b0, VxOUTX[dsp_reg_address[6:4]][6:0]};
+
+    // 8'h0C: reg_data_out = MVOLL;
+    // 8'h1C: reg_data_out = MVOLR;
+    // 8'h2C: reg_data_out = EVOLL;
+    // 8'h3C: reg_data_out = EVOLR;
     default: reg_data_out = 0;
   endcase
 end
@@ -120,12 +126,18 @@ end
 // Write to Reg
 always @(posedge clock) begin
   if(dsp_reg_write_enable) begin
-    case (dsp_reg_address[3:0])
-      4'h0: VxVOLL[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;  
-      4'h1: VxVOLR[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
-      4'h2: VxPL[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
-      4'h3: VxPH[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
-      4'h8: VxENVX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in & 8'b0111_1111;  
+    casez (dsp_reg_address)
+      8'h?0: VxVOLL[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;  
+      8'h?1: VxVOLR[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
+      8'h?2: VxPL[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
+      8'h?3: VxPH[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
+      8'h?8: VxENVX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in & 8'b0111_1111;  
+      8'h?9: VxOUTX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
+
+      // 8'h0C: MVOLL <= dsp_reg_data_in;
+      // 8'h1C: MVOLR <= dsp_reg_data_in;
+      // 8'h2C: EVOLL <= dsp_reg_data_in;
+      // 8'h3C: EVOLR <= dsp_reg_data_in;
       default: begin end
     endcase
   end
@@ -175,6 +187,8 @@ always @(posedge clock)
         VxENVX[gi] <= 8'b01111111;
         VxVOLL[gi] <= 8'b01111111 / 4;
         VxVOLR[gi] <= 8'b01111111 / 4;
+        MVOLL <= 8'b01111111;
+        MVOLR <= 8'b01111111;
     end
   end
 end

@@ -1,0 +1,146 @@
+<session jtag_chain="USB-Blaster [1-3]" jtag_device="@1: 5CGTFD5(C5|F5)/5CGXBC5C(6|7)/.. (0x02B020DD)" sof_file="">
+  <display_tree gui_logging_enabled="0">
+    <display_branch instance="auto_signaltap_0" log="USE_GLOBAL_TEMP" signal_set="USE_GLOBAL_TEMP" trigger="USE_GLOBAL_TEMP"/>
+  </display_tree>
+  <instance enabled="true" entity_name="sld_signaltap" is_auto_node="yes" is_expanded="true" name="auto_signaltap_0" source_file="sld_signaltap.vhd">
+    <node_ip_info instance_id="0" mfg_id="110" node_id="0" version="6"/>
+    <position_info>
+      <single attribute="active tab" value="0"/>
+      <single attribute="data horizontal scroll position" value="0"/>
+      <single attribute="data vertical scroll position" value="0"/>
+      <single attribute="setup horizontal scroll position" value="0"/>
+      <single attribute="setup vertical scroll position" value="0"/>
+      <single attribute="zoom level denominator" value="1"/>
+      <single attribute="zoom level numerator" value="1"/>
+      <single attribute="zoom offset denominator" value="1"/>
+      <single attribute="zoom offset numerator" value="130944"/>
+    </position_info>
+    <signal_set global_temp="1" name="signal_set: 2021/06/13 18:25:28  #0">
+      <clock name="bclk_counter[2]~0" polarity="posedge" tap_mode="probeonly"/>
+      <config is_hps_trigger_out_selected="false" pipeline_level="0" ram_type="AUTO" reserved_data_nodes="0" reserved_storage_qualifier_nodes="0" reserved_trigger_nodes="0" sample_depth="1024" trigger_in_enable="yes" trigger_in_node="PB[1]~input" trigger_in_tap_mode="probeonly" trigger_out_enable="no"/>
+      <top_entity/>
+      <signal_vec>
+        <trigger_input_vec>
+          <wire name="DSP:dsp|major_step~0" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~1" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~2" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~3" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~4" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~5" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_DATA" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_LR_CLK" tap_mode="probeonly"/>
+        </trigger_input_vec>
+        <data_input_vec>
+          <wire name="DSP:dsp|major_step~0" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~1" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~2" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~3" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~4" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~5" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_DATA" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_LR_CLK" tap_mode="probeonly"/>
+        </data_input_vec>
+        <storage_qualifier_input_vec>
+          <wire name="DSP:dsp|major_step~0" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~1" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~2" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~3" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~4" tap_mode="probeonly"/>
+          <wire name="DSP:dsp|major_step~5" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_DATA" tap_mode="probeonly"/>
+          <wire name="i2s:audio_codec|DAC_LR_CLK" tap_mode="probeonly"/>
+        </storage_qualifier_input_vec>
+      </signal_vec>
+      <presentation>
+        <unified_setup_data_view>
+          <node data_index="0" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~0" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="0" tap_mode="probeonly" trigger_index="0" type="unknown"/>
+          <node data_index="1" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~1" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="1" tap_mode="probeonly" trigger_index="1" type="unknown"/>
+          <node data_index="2" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~2" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="2" tap_mode="probeonly" trigger_index="2" type="unknown"/>
+          <node data_index="3" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~3" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="3" tap_mode="probeonly" trigger_index="3" type="unknown"/>
+          <node data_index="4" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~4" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="4" tap_mode="probeonly" trigger_index="4" type="unknown"/>
+          <node data_index="5" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~5" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="5" tap_mode="probeonly" trigger_index="5" type="unknown"/>
+          <node data_index="6" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_DATA" storage_index="6" tap_mode="probeonly" trigger_index="6" type="unknown"/>
+          <node data_index="7" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_LR_CLK" storage_index="7" tap_mode="probeonly" trigger_index="7" type="unknown"/>
+        </unified_setup_data_view>
+        <data_view>
+          <net data_index="0" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~0" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="0" tap_mode="probeonly" trigger_index="0" type="unknown"/>
+          <net data_index="1" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~1" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="1" tap_mode="probeonly" trigger_index="1" type="unknown"/>
+          <net data_index="2" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~2" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="2" tap_mode="probeonly" trigger_index="2" type="unknown"/>
+          <net data_index="3" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~3" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="3" tap_mode="probeonly" trigger_index="3" type="unknown"/>
+          <net data_index="4" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~4" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="4" tap_mode="probeonly" trigger_index="4" type="unknown"/>
+          <net data_index="5" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~5" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="5" tap_mode="probeonly" trigger_index="5" type="unknown"/>
+          <net data_index="6" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_DATA" storage_index="6" tap_mode="probeonly" trigger_index="6" type="unknown"/>
+          <net data_index="7" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_LR_CLK" storage_index="7" tap_mode="probeonly" trigger_index="7" type="unknown"/>
+        </data_view>
+        <setup_view>
+          <net data_index="0" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~0" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="0" tap_mode="probeonly" trigger_index="0" type="unknown"/>
+          <net data_index="1" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~1" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="1" tap_mode="probeonly" trigger_index="1" type="unknown"/>
+          <net data_index="2" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~2" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="2" tap_mode="probeonly" trigger_index="2" type="unknown"/>
+          <net data_index="3" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~3" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="3" tap_mode="probeonly" trigger_index="3" type="unknown"/>
+          <net data_index="4" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~4" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="4" tap_mode="probeonly" trigger_index="4" type="unknown"/>
+          <net data_index="5" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" level-0="dont_care" name="DSP:dsp|major_step~5" pwr_level-0="dont_care" pwr_storage-0="dont_care" pwr_storage-1="dont_care" pwr_storage-2="dont_care" storage-0="dont_care" storage-1="dont_care" storage-2="dont_care" storage_index="5" tap_mode="probeonly" trigger_index="5" type="unknown"/>
+          <net data_index="6" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_DATA" storage_index="6" tap_mode="probeonly" trigger_index="6" type="unknown"/>
+          <net data_index="7" duplicate_name_allowed="false" is_data_input="true" is_node_valid="true" is_selected="false" is_storage_input="true" is_trigger_input="true" name="i2s:audio_codec|DAC_LR_CLK" storage_index="7" tap_mode="probeonly" trigger_index="7" type="unknown"/>
+        </setup_view>
+        <trigger_in_editor bit_condition="either edge" is_enabled="true" is_hps_event_selected="false" is_hps_trigger_in_selected="false" is_node_post_fitting="true" is_node_selected="true" is_pin_selected="false" node_name="PB[1]~input" pin_name="auto_stp_trigger_in_auto_signaltap_0"/>
+        <trigger_out_editor/>
+      </presentation>
+      <trigger CRC="8B40406A" attribute_mem_mode="false" gap_record="true" global_temp="1" name="trigger: 2021/06/13 18:25:28  #1" position="pre" power_up_trigger_mode="false" record_data_gap="true" segment_size="64" storage_mode="off" storage_qualifier_disabled="no" storage_qualifier_port_is_pin="false" storage_qualifier_port_name="auto_stp_external_storage_qualifier" storage_qualifier_port_tap_mode="classic" trigger_in="either edge" trigger_type="circular">
+        <power_up_trigger position="pre" storage_qualifier_disabled="no" trigger_in="high"/>
+        <events use_custom_flow_control="no">
+          <level enabled="yes" name="condition1" type="basic">
+            <power_up enabled="yes">
+            </power_up>
+            <op_node/>
+          </level>
+          <custom_flow_control>
+            <runtime_configurable comparison_operator="yes" counter_action="no" flag_action="no" logical_operator="yes" numerical_value="yes" state_transition="yes"/>
+            <flow_expression><![CDATA[state ST1:
+trigger;]]>
+            </flow_expression>
+            <power_up_flow_expression><![CDATA[state ST1:
+trigger;]]>
+            </power_up_flow_expression>
+          </custom_flow_control>
+        </events>
+        <storage_qualifier_events>
+          <transitional>11111111
+            <pwr_up_transitional>11111111</pwr_up_transitional>
+          </transitional>
+          <storage_qualifier_level type="basic">
+            <power_up>
+            </power_up>
+            <op_node/>
+          </storage_qualifier_level>
+          <storage_qualifier_level type="basic">
+            <power_up>
+            </power_up>
+            <op_node/>
+          </storage_qualifier_level>
+          <storage_qualifier_level type="basic">
+            <power_up>
+            </power_up>
+            <op_node/>
+          </storage_qualifier_level>
+        </storage_qualifier_events>
+        <log>
+          <data global_temp="1" name="log: Trig @ 2021/06/13 18:37:07 (0:0:4.7 elapsed)" power_up_mode="false" sample_depth="1023" trigger_position="-1">00110110001101110011011100110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101010011010100110110001101110011011100110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110110001101100011011000110100001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101000011010000110111001101100011011000110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011100110101001101010011010100110111001101110011011110111001</data>
+          <extradata>1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111</extradata>
+        </log>
+      </trigger>
+    </signal_set>
+  </instance>
+  <mnemonics/>
+  <static_plugin_mnemonics/>
+  <global_info>
+    <single attribute="active instance" value="0"/>
+    <single attribute="config widget visible" value="1"/>
+    <single attribute="data log widget visible" value="1"/>
+    <single attribute="hierarchy widget visible" value="1"/>
+    <single attribute="instance widget visible" value="1"/>
+    <single attribute="jtag widget visible" value="1"/>
+    <single attribute="lock mode" value="0"/>
+    <multi attribute="frame size" size="2" value="1597,1237"/>
+    <multi attribute="jtag widget size" size="2" value="355,147"/>
+  </global_info>
+</session>

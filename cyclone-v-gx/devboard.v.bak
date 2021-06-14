@@ -1,0 +1,99 @@
+module clock_divider(input_clock, i2c_clock, audio_clock, cpu_clock);
+	input input_clock;
+	
+	output i2c_clock;
+	output audio_clock;
+	output cpu_clock;
+	
+	reg [27:0] divider_state;
+	
+	assign i2c_clock = divider_state[15];
+	assign audio_clock = divider_state[2];
+	assign cpu_clock = divider_state[22];
+	
+	always @(posedge input_clock)
+	begin
+		divider_state <= divider_state + 24'd1;
+	end
+endmodule
+
+module devboard(
+		SW, PB,                 // Input Switches
+		LEDR, LEDG,             // Output LEDs
+		CLK50,                  // Reference Clocks
+		HEX0, HEX1, HEX2, HEX3, // Output 7-segment Displays
+		I2C_SCLK, I2C_SDAT,     // I2C bus (HDMI, Audio)
+		AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK // Audio Codec (SSM2603)
+);
+	// Clocks
+	input CLK50;
+	wire CLK_AUDIO;
+	wire CLK_I2C;
+	wire CLK_CPU;
+	
+	// User Input
+	input [9:0]SW;
+	input [3:0]PB;
+	
+	// LED / Displays
+	output [6:0]HEX0;
+	output [6:0]HEX1;
+	output [6:0]HEX2;
+	output [6:0]HEX3;
+	output [9:0]LEDR;
+	output [7:0]LEDG;
+	
+	// I2C
+	output I2C_SCLK;
+	inout wire I2C_SDAT;
+	
+	// Audio Codec
+	output AUD_XCK;
+	output AUD_BCLK;
+	output AUD_DACDAT;
+	output AUD_DACLRCK;
+	
+	// Clock Control
+	clock_divider divider(CLK50, CLK_I2C, CLK_AUDIO, CLK_CPU);
+	
+	// Push Button Controls
+	wire i2c_button_read;
+	wire i2c_button_write;
+	wire i2c_button_start;
+	wire i2c_button_end;
+	
+	button_debounce debouncer1(CLK_I2C, PB[0], i2c_button_read);
+	button_debounce debouncer2(CLK_I2C, PB[1], i2c_button_write);
+	button_debounce debouncer3(CLK_I2C, PB[2], i2c_button_end);
+	button_debounce debouncer4(CLK_I2C, PB[3], i2c_button_start);
+	
+	// I2C Master
+	reg i2c_start, i2c_end, i2c_write, i2c_read;
+	wire [7:0] i2c_in;
+	reg [7:0] i2c_out;
+	wire i2c_error;
+	wire i2c_ready;
+	
+	i2c_master i2c(CLK_I2C, I2C_SCLK, I2C_SDAT,
+	               i2c_start, i2c_end, i2c_write, i2c_read,
+	               i2c_error, i2c_ready, i2c_in, i2c_out);
+	
+	// Audio Codec controller
+	ssm2603_codec audio_codec(CLK_AUDIO, AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK);
+	
+	// Soft CPU
+	wire [15:0]CPU_R0;
+	wire [15:0]CPU_MEM_ADDRESS;
+	
+	//cpu_blockram cpu_ram(CLK_CPU, CPU_MEM_ADDRESS[8:1], CPU_MEM_BUS, CPU_MEM_WRITE);
+	cpu16 cpu(i2c_button_start, CLK_CPU, CPU_R0, CPU_MEM_ADDRESS);
+	
+	// Debug Outputs
+	assign LEDG[0] = CLK_CPU;
+	//assign LEDG[1] = CPU_MEM_WRITE;
+	
+	hexdisplay hex0(CPU_MEM_ADDRESS[3:0], HEX0);
+	hexdisplay hex1(CPU_MEM_ADDRESS[7:4], HEX1);
+	hexdisplay hex2(CPU_R0[3:0], HEX2);
+	hexdisplay hex3(CPU_R0[7:4], HEX3);
+endmodule

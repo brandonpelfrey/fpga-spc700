@@ -1,4 +1,4 @@
-`include "DSPVoiceDecoder.v"
+// `include "DSPVoiceDecoder.v"
 
 // The S-DSP has a nominal output sample rate of 32KhZ, and originally
 // had 96 clock cycles per sample (~3MhZ). In this system, we'll be shooting for
@@ -39,8 +39,8 @@ module DSP (
   reset,
   dac_out_l,
   dac_out_r,
-  idle,
-  voice_states_out
+  voice_states_out,
+  major_step
 );
 
 output reg [15:0] ram_address;
@@ -54,7 +54,6 @@ input clock;
 input reset;
 output reg signed [15:0] dac_out_l;
 output reg signed [15:0] dac_out_r;
-output idle;
 output [8*4 - 1:0] voice_states_out;
 
 genvar gi;
@@ -64,7 +63,7 @@ parameter CLOCKS_PER_SAMPLE = 32 * 2; // 32 "steps" * 3 clock cycles each
 parameter N_VOICES = 8;
 
 parameter N_MAJOR_STEPS = 64;
-reg [5:0] major_step;
+output reg [5:0] major_step;
 
 ///////////////////////////////////////////////////////////////////////////////
 // DSP Registers
@@ -155,8 +154,11 @@ wire [15:0] decoder_cursor [7:0];
 
 // Form the pitch for each voice from registers
 wire [13:0] decoder_pitch [7:0];
-for(gi=0; gi<8; gi=gi+1)
+generate
+for(gi=0; gi<8; gi=gi+1) begin:m
   assign decoder_pitch[gi] = {VxPH[gi][5:0], VxPL[gi][7:0]};
+end
+endgenerate
 
 // Used to control whether clock ticks occur for a given voice. This is used
 // during initial reset
@@ -171,7 +173,7 @@ DSPVoiceDecoder decoders [7:0] (
   decoder_write_requests,
   16'b0,
   16'b0,
-  decoder_pitch,
+  14'd4096,
   decoder_output,
   decoder_reached_end,
   decoder_advance_trigger,
@@ -180,33 +182,25 @@ DSPVoiceDecoder decoders [7:0] (
 //////////////////////////////////////////////
 
 // Per-voice Reset Logic
-for(gi=0; gi<N_VOICES; gi=gi+1) begin
+generate
+for(gi=0; gi<N_VOICES; gi=gi+1) begin:per_voice_reset_logic
 always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-        VxENVX[gi] <= 8'b01111111;
-        VxVOLL[gi] <= 8'b01111111 / 4;
-        VxVOLR[gi] <= 8'b01111111 / 4;
-        MVOLL <= 8'b01111111;
-        MVOLR <= 8'b01111111;
+//        VxENVX[gi] <= 8'b01111111;
+//        VxVOLL[gi] <= 8'b01111111 / 4;
+//        VxVOLR[gi] <= 8'b01111111 / 4;
+//        MVOLL <= 8'b01111111;
+//        MVOLR <= 8'b01111111;
     end
   end
 end
+endgenerate
 
 // Clocked logic - Reset
-always @(posedge clock)
-  if (reset == 1'b1) begin
-    // Global DSP reset logic
-    major_step <= 63;
-
-    // Additional reset logic, per-voice.
-    for(i=0; i<8; i=i+1) begin
-      decoder_advance_trigger[i] <= i == 0 ? 1 : 0;
-    end
-  end
 
 localparam VOICE_CYCLES = 12;
-localparam [5:0] VOICE_RESUME [7:0] = '{ 6'd26, 6'd22, 6'd18, 6'd14, 6'd10, 6'd6, 6'd2, 6'd62 };
+localparam integer VOICE_RESUME [7:0] = '{ 26, 22, 18, 14, 10, 6, 2, 62 };
 
 
 // Combinatorial mixing logic
@@ -242,39 +236,42 @@ end
 reg [2:0] current_voice;
 assign ram_address = decoder_ram_address[current_voice];
 
-// Clocked logic - Non-Reset
-always @(posedge clock)
-if (reset == 0'b0) begin
-  //$display("xxx RAM %h %h", ram_address, ram_data);
-
-  major_step <= major_step + 1;
-
-  // Enable and disable clocking for each voice at the right times
-  for(i=0; i<8; i=i+1) begin
-    // Start each voice at a predetermined time in the schedule. All voice logic
-    // is disabled at the end of the schedule and then the process repeats next
-    // schedule.
-    if(major_step == VOICE_RESUME[i]) begin
-      decoder_advance_trigger[i] <= 1;
-      current_voice <= i[2:0];
-    end
-
-    if(decoder_advance_trigger[i])
-      decoder_advance_trigger[i] <= 0;
-  end
-
-  // DSP FSM logic
-  case (major_step)
-
-    6'd63: begin
-      dac_out_l <= dac_sample_l[15:0];
-      dac_out_r <= dac_sample_r[15:0];
-    end
-    default: begin end
-  endcase
-end
+always @(posedge clock) begin
 	
-assign idle = 0;
-assign dsp_reg_data_out = 0;
-  
+	if (reset == 1'b1) begin
+		major_step <= 63;
+		for(i=0; i<8; i=i+1) begin
+			decoder_advance_trigger[i] <= i == 0 ? 1 : 0;
+		end
+	end
+	  
+	if (reset == 1'b0) begin
+		major_step <= major_step + 1;
+		
+	  // Enable and disable clocking for each voice at the right times
+	  for(i=0; i<8; i=i+1) begin
+		 // Start each voice at a predetermined time in the schedule. All voice logic
+		 // is disabled at the end of the schedule and then the process repeats next
+		 // schedule.
+		 if(major_step == VOICE_RESUME[i][5:0]) begin
+			decoder_advance_trigger[i] <= 1;
+			current_voice <= i[2:0];
+		 end
+
+		 if(decoder_advance_trigger[i])
+			decoder_advance_trigger[i] <= 0;
+	  end
+
+	  // DSP FSM logic
+	  case (major_step)
+
+		 6'd63: begin
+			dac_out_l <= dac_sample_l[15:0];
+			dac_out_r <= dac_sample_r[15:0];
+		 end
+		 default: begin end
+	  endcase
+	end
+end
+	  
 endmodule

@@ -86,7 +86,7 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
   for (int i = 0; i < 64 * 32000 * 3; ++i)
   {
-    const unsigned major_step = bench->TestDSP__DOT__dsp__DOT__major_step;
+    const unsigned major_step = bench->major_step;
 
     // Logging
     if (0)

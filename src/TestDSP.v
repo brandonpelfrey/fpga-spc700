@@ -3,7 +3,6 @@ module TestDSP(
   input reset,
   output signed [15:0] dac_out_l,
   output signed [15:0] dac_out_r,
-  output idle,
 
   input  [7:0] dsp_reg_address,
   input  [7:0] dsp_reg_data_in,
@@ -13,7 +12,8 @@ module TestDSP(
   output [8*4-1:0] voice_states_out,
 
   output [15:0] ram_address,
-  input [7:0] ram_data
+  input [7:0] ram_data,
+  output [5:0] major_step
 );
 
 // wire [15:0] address;
@@ -39,12 +39,12 @@ DSP dsp(
 
   .clock(clock),
   .reset(reset),
-  .idle(idle),
 
   .dac_out_l(dac_out_l),
   .dac_out_r(dac_out_r),
 
-  .voice_states_out(voice_states_out)
+  .voice_states_out(voice_states_out),
+  .major_step(major_step)
 );
 
 endmodule

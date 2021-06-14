@@ -1,0 +1,10 @@
+module i2s(
+	CLK,
+	AUD_XCK, // Data for Sending Data
+	BCLK,
+	DAC_LR_CLK,
+	DAC_DATA
+);
+
+
+endmodule

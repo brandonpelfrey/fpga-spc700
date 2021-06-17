@@ -3,7 +3,8 @@ module i2c_master(
 	i2c_sclk, i2c_sdat,   // External I2C interface
 	start_transaction, end_transaction, start_write, start_read, // Control Lines
 	out_error, out_ready, // Status Lines
-	data_in, data_out     // Data Feed / Output
+	data_in, data_out,     // Data Feed / Output
+	is_busy
 );
 	input clock;
 	input start_transaction;
@@ -13,6 +14,7 @@ module i2c_master(
 	
 	output out_error;
 	output out_ready;
+	output is_busy;
 	
 	output i2c_sclk;
 	inout i2c_sdat;
@@ -21,13 +23,13 @@ module i2c_master(
 	input [7:0] data_out;
 	
 	reg [3:0] state;
-	reg busy;
-	reg active;
-	reg en_write, sclk, sdat, error;
-	reg ready;
+	reg busy /* synthesis noprune */;
+	reg active /* synthesis noprune */;
+	reg en_write, sclk, sdat, error /* synthesis noprune */;
+	reg ready /* synthesis noprune */;
 	
 	reg [7:0] buf_in;
-	reg [7:0] buf_out;
+	reg [7:0] buf_out /* synthesis noprune */;
 	
 	reg [7:0] data;
 	reg [3:0] i2c_state;
@@ -40,6 +42,7 @@ module i2c_master(
 	assign out_ready = ready;
 	
 	assign data_in = buf_in;
+	assign is_busy = busy;
 	
 	always @(posedge clock)
 	begin

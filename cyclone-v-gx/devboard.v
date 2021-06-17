@@ -1,15 +1,21 @@
-module clock_divider(input_clock, i2c_clock, audio_clock, cpu_clock);
+module clock_divider(input_clock, i2c_clock, audio_clock, audio_bclk, cpu_clock);
 	input input_clock;
 	
 	output i2c_clock;
 	output audio_clock;
+	output audio_bclk;
 	output cpu_clock;
 	
 	reg [27:0] divider_state;
 	
 	assign i2c_clock = divider_state[15];
-	assign audio_clock = divider_state[2];
-	assign cpu_clock = divider_state[23];
+	assign audio_clock = divider_state[1];
+	assign audio_bclk = divider_state[3];
+	assign cpu_clock = divider_state[21];
+	
+	// 50mhz input
+	// /4 -> ~12.288 Mhz mclk
+	// /4 -> bclk @ 32000khz gets 96 cycles per L/R pair
 	
 	always @(posedge input_clock)
 	begin
@@ -53,19 +59,23 @@ module devboard(
 	output AUD_DACDAT;
 	output AUD_DACLRCK;
 	
+	assign AUD_XCK = CLK_AUDIO;
+	
 	// Clock Control
-	clock_divider divider(CLK50, CLK_I2C, CLK_AUDIO, CLK_CPU);
+	clock_divider divider(CLK50, CLK_I2C, CLK_AUDIO, AUD_BCLK, CLK_CPU);
 	
 	// Push Button Controls
 	wire i2c_button_read;
 	wire i2c_button_write;
 	wire i2c_button_start;
 	wire i2c_button_end;
+	wire pb1_debounced;
+	wire pb3_debounced;
 	
-	button_debounce debouncer1(CLK_I2C, PB[0], i2c_button_read);
-	button_debounce debouncer2(CLK_I2C, PB[1], i2c_button_write);
-	button_debounce debouncer3(CLK_I2C, PB[2], i2c_button_end);
-	button_debounce debouncer4(CLK_I2C, PB[3], i2c_button_start);
+	button_debounce debouncer1(CLK_I2C, ~PB[0], i2c_button_read);
+	button_debounce debouncer2(CLK_I2C, ~PB[1], pb1_debounced);
+	button_debounce debouncer3(CLK_I2C, ~PB[2], i2c_button_end);
+	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
 	
 	// I2C Master
 	reg i2c_start, i2c_end, i2c_write, i2c_read;
@@ -77,42 +87,108 @@ module devboard(
 	i2c_master i2c(CLK_I2C, I2C_SCLK, I2C_SDAT,
 	               i2c_start, i2c_end, i2c_write, i2c_read,
 	               i2c_error, i2c_ready, i2c_in, i2c_out);
+		
+	localparam integer AUDIO_INIT_DATA [0:5*11 + 2 - 1][0:1] = '{
+		// 
+		'{4'b0001, 8'b0},
+		
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b00110000}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 0 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 1 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 2 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 3 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 4 << 1}, '{4'b0010, 8'b00010000}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 5 << 1}, '{4'b0010, 8'b00000000}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 7 << 1}, '{4'b0010, 8'b00001110}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 8 << 1}, '{4'b0010, 8'b00011000}, '{4'b0100, 8'b0},
+		
+		// Delay
+		'{4'b0001, 8'b0},
+		
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 9 << 1}, '{4'b0010, 8'b00000001}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b00100000}, '{4'b0100, 8'b0}
+	};	
+			
+	reg i2c_wait = 0;
+	reg[15:0] i2c_queue_index = 16'b0;
+	reg [3:0] i2c_queue_state = 4'b0000;
+	reg [31:0] i2c_wait_counter = 32'b0;
+	
+	always @(posedge CLK_I2C)
+		if(pb3_debounced)
+			i2c_wait <= 1;
+	
+	always @(posedge CLK_I2C) begin
+		case(i2c_queue_state)
+			4'b0000: begin
+				i2c_wait_counter <= 32'b0;
+				i2c_read         <= 0;
+				
+				if(i2c_wait & i2c_ready) begin
+					i2c_queue_index <= i2c_queue_index + 4'b0001;
+					if(AUDIO_INIT_DATA[i2c_queue_index][0][0]) begin
+						i2c_queue_state <= 4'b0010;
+					end else begin
+						i2c_start <= AUDIO_INIT_DATA[i2c_queue_index][0][3];
+						i2c_end   <= AUDIO_INIT_DATA[i2c_queue_index][0][2];
+						i2c_write <= AUDIO_INIT_DATA[i2c_queue_index][0][1];
+						i2c_out   <= AUDIO_INIT_DATA[i2c_queue_index][1][7:0];
+						i2c_queue_state <= 4'b0001;
+					end
+				end
+			end
+			
+			4'b0001: begin
+				i2c_start <= 0;
+				i2c_end <= 0;
+				i2c_write <= 0;
+				
+				if(i2c_error || i2c_queue_index == (5*11+2-1)) // Maybe done?
+					i2c_queue_state <= 4'b1000;
+				else	
+					i2c_queue_state <= 4'b0000;
+			end
+			
+			4'b0010: begin
+				if(i2c_wait_counter >= 50 ) begin // Wait ~50ms
+					i2c_queue_state <= 4'b0000;
+				end else begin
+					i2c_wait_counter <= i2c_wait_counter + 32'b1;
+				end
+			end
+			
+			4'b1000: begin
+				// Terminal I2C Setup state. Do nothing.
+				i2c_queue_state <= 4'b1000;
+			end
+			
+			default: begin
+				i2c_queue_state <= 4'b0000;
+			end
+		endcase
+	end				
+						
 	
 	// Audio Codec controller
-//	ssm2603_codec audio_codec(CLK_AUDIO, AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK);
+	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK);
 
-	wire MCLK = CLK_AUDIO;
-	
-	reg[2:0] bclk_counter;
-	always @(posedge MCLK) begin
-		bclk_counter <= bclk_counter + 3'd1;
-	end
-	
-	assign AUD_BCLK = bclk_counter[2];
-	assign AUD_XCK = MCLK;
-	
-	i2s audio_codec(
-		.BCLK(AUD_BCLK),
-		.DAC_LR_CLK(AUD_DACLRCK),
-		.DAC_DATA(AUD_DACDAT)
-	);
-	
 	// Soft CPU
 	wire [15:0]CPU_R0;
 	wire [15:0]CPU_MEM_ADDRESS;
-	
-	//cpu_blockram cpu_ram(CLK_CPU, CPU_MEM_ADDRESS[8:1], CPU_MEM_BUS, CPU_MEM_WRITE);
-	//cpu16 cpu(i2c_button_start, CLK_CPU, CPU_R0, CPU_MEM_ADDRESS);
-	
+		
 	// Debug Outputs
 	assign LEDG[0] = CLK_CPU;
-	assign LEDG[1] = PB[1];
+	assign LEDG[1] = pb1_debounced;
+	assign LEDG[3] = i2c_start;
+	assign LEDG[4] = i2c_end;
+	assign LEDG[5] = i2c_write;
+	assign LEDG[6] = i2c_read;
+	assign LEDG[7] = i2c_wait;
 	
 	hexdisplay hex0(CPU_MEM_ADDRESS[3:0],   HEX0);
 	hexdisplay hex1(CPU_MEM_ADDRESS[7:4],   HEX1);
 //	hexdisplay hex2(CPU_MEM_ADDRESS[11:8],  HEX2);
 //	hexdisplay hex3(CPU_MEM_ADDRESS[15:12], HEX3);
-	
 	
 	wire [8*4 - 1:0] dsp_voice_states_out;
 	wire [2:0] decoder_state;

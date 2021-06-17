@@ -42,7 +42,6 @@ set_time_format -unit ns -decimal_places 3
 create_clock -name {CLK50} -period 20.000 -waveform { 0.000 10.000 } [get_ports {CLK50}]
 create_generated_clock -name {CLK25} -divide_by 4 -source [get_ports {CLK50}] [get_registers divider|divider_state[2]]
 create_generated_clock -name {CLK1K} -divide_by 32768 -source [get_ports {CLK50}] [get_registers divider|divider_state[15]]
-create_generated_clock -name {CLKCPU} -divide_by 134217728 -source [get_ports {CLK50}] [get_registers divider|divider_state[27]]
 
 
 #**************************************************************

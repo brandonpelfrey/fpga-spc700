@@ -105,8 +105,8 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
       printf(". | ");
       for (int v = 0; v < 8; v++)
       {
-        const unsigned pitch = bench->TestDSP__DOT__dsp__DOT__decoder_pitch[v];
-        printf("%6u ", pitch);
+        // const unsigned pitch = bench->TestDSP__DOT__dsp__DOT__decoder_pitch[v];
+        // printf("%6u ", pitch);
       }
       {
         const unsigned current_voice = bench->TestDSP__DOT__dsp__DOT__current_voice;

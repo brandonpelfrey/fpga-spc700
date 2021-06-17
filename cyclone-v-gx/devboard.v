@@ -87,88 +87,19 @@ module devboard(
 	i2c_master i2c(CLK_I2C, I2C_SCLK, I2C_SDAT,
 	               i2c_start, i2c_end, i2c_write, i2c_read,
 	               i2c_error, i2c_ready, i2c_in, i2c_out);
-		
-	localparam integer AUDIO_INIT_DATA [0:5*11 + 2 - 1][0:1] = '{
-		// 
-		'{4'b0001, 8'b0},
-		
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b00110000}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 0 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 1 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 2 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 3 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 4 << 1}, '{4'b0010, 8'b00010000}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 5 << 1}, '{4'b0010, 8'b00000000}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 7 << 1}, '{4'b0010, 8'b00001110}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 8 << 1}, '{4'b0010, 8'b00011000}, '{4'b0100, 8'b0},
-		
-		// Delay
-		'{4'b0001, 8'b0},
-		
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 9 << 1}, '{4'b0010, 8'b00000001}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b00100000}, '{4'b0100, 8'b0}
-	};	
+
+	ssm2603_bringup audio_bringup(
+		.start_trigger(pb3_debounced),
+		.CLK_I2C(CLK_I2C),
+		.i2c_out(i2c_out),
+		.i2c_start(i2c_start),
+		.i2c_end(i2c_end),
+		.i2c_write(i2c_write),
+		.i2c_read(i2c_read),
+		.i2c_ready(i2c_ready),
+		.i2c_error(i2c_error)	
+	);
 			
-	reg i2c_wait = 0;
-	reg[15:0] i2c_queue_index = 16'b0;
-	reg [3:0] i2c_queue_state = 4'b0000;
-	reg [31:0] i2c_wait_counter = 32'b0;
-	
-	always @(posedge CLK_I2C)
-		if(pb3_debounced)
-			i2c_wait <= 1;
-	
-	always @(posedge CLK_I2C) begin
-		case(i2c_queue_state)
-			4'b0000: begin
-				i2c_wait_counter <= 32'b0;
-				i2c_read         <= 0;
-				
-				if(i2c_wait & i2c_ready) begin
-					i2c_queue_index <= i2c_queue_index + 4'b0001;
-					if(AUDIO_INIT_DATA[i2c_queue_index][0][0]) begin
-						i2c_queue_state <= 4'b0010;
-					end else begin
-						i2c_start <= AUDIO_INIT_DATA[i2c_queue_index][0][3];
-						i2c_end   <= AUDIO_INIT_DATA[i2c_queue_index][0][2];
-						i2c_write <= AUDIO_INIT_DATA[i2c_queue_index][0][1];
-						i2c_out   <= AUDIO_INIT_DATA[i2c_queue_index][1][7:0];
-						i2c_queue_state <= 4'b0001;
-					end
-				end
-			end
-			
-			4'b0001: begin
-				i2c_start <= 0;
-				i2c_end <= 0;
-				i2c_write <= 0;
-				
-				if(i2c_error || i2c_queue_index == (5*11+2-1)) // Maybe done?
-					i2c_queue_state <= 4'b1000;
-				else	
-					i2c_queue_state <= 4'b0000;
-			end
-			
-			4'b0010: begin
-				if(i2c_wait_counter >= 50 ) begin // Wait ~50ms
-					i2c_queue_state <= 4'b0000;
-				end else begin
-					i2c_wait_counter <= i2c_wait_counter + 32'b1;
-				end
-			end
-			
-			4'b1000: begin
-				// Terminal I2C Setup state. Do nothing.
-				i2c_queue_state <= 4'b1000;
-			end
-			
-			default: begin
-				i2c_queue_state <= 4'b0000;
-			end
-		endcase
-	end				
-						
-	
 	// Audio Codec controller
 	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK);
 
@@ -183,7 +114,7 @@ module devboard(
 	assign LEDG[4] = i2c_end;
 	assign LEDG[5] = i2c_write;
 	assign LEDG[6] = i2c_read;
-	assign LEDG[7] = i2c_wait;
+	assign LEDG[7] = 0;
 	
 	hexdisplay hex0(CPU_MEM_ADDRESS[3:0],   HEX0);
 	hexdisplay hex1(CPU_MEM_ADDRESS[7:4],   HEX1);
@@ -194,19 +125,13 @@ module devboard(
 	wire [2:0] decoder_state;
 	wire [15:0] dsp_ram_addr = CPU_MEM_ADDRESS;
 	wire [7:0] dsp_ram_data = SW[7:0];
-	
 	wire [15:0] dsp_reg_address;
 	wire [7:0] dsp_reg_data_in;
 	wire [7:0] dsp_reg_data_out;
 	wire dsp_reg_write_enable;
-	
 	wire [15:0] dsp_l;
 	wire [15:0] dsp_r;
-	
 	wire [5:0] major_step;
-	
-//	assign LEDG[3:1] = dsp_l[3:1];
-//	assign LEDG[7:4] = dsp_l[7:4];
 	
 	assign LEDR[0] = dsp_voice_states_out[4*0 + 3 : 4*0] == 4'd2;
 	assign LEDR[1] = dsp_voice_states_out[4*1 + 3 : 4*1] == 4'd2;

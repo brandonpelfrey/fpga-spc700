@@ -7,9 +7,9 @@ module SPC700RAM(
 );
 
 parameter ADDRESS_BITS = 16;
-
 reg [7:0] storage [(2**ADDRESS_BITS)-1:0];
-assign data = write_enable ? storage[address] : 8'b0;
+
+assign data = write_enable ? storage[address] : 8'bz;
 
 always @(posedge clock)
   if (write_enable)

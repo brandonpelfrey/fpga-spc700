@@ -118,6 +118,7 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
     if (major_step == 63)
     {
+      printf("%d\n", *(s16*)&bench->dac_out_l);
       recorder.push(bench->dac_out_l, bench->dac_out_r);
     }
 

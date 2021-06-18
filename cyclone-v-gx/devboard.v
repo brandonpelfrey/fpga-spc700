@@ -9,14 +9,27 @@ module clock_divider(input_clock, i2c_clock, audio_clock, audio_bclk, cpu_clock)
 	reg [27:0] divider_state;
 	
 	assign i2c_clock = divider_state[15];
-	assign audio_clock = divider_state[1];
-	assign audio_bclk = divider_state[3];
 	assign cpu_clock = divider_state[21];
 	
-	// 50mhz input
-	// /4 -> ~12.288 Mhz mclk
-	// /4 -> bclk @ 32000khz gets 96 cycles per L/R pair
+	wire clk_12288mhz = divider_state[1];
 	
+	// MCLK is 384 * sample rate (=32 Khz) = 12.288 Mhz
+	wire mclk = clk_12288mhz;
+	
+	// BCLK is sample rate (32 Khz) * 2 * 32 = 2.048 Mhz (= mclk / 6)
+	reg bclk;
+	reg [31:0] bclk_counter;
+	always @(posedge clk_12288mhz) begin
+		if(bclk_counter == 32'd5) begin
+			bclk_counter <= 0;
+			bclk <= ~bclk;
+		end else
+			bclk_counter <= bclk_counter + 32'd1;
+	end
+	
+	assign audio_clock = mclk;
+	assign audio_bclk = bclk;
+		
 	always @(posedge input_clock)
 	begin
 		divider_state <= divider_state + 24'd1;
@@ -101,7 +114,20 @@ module devboard(
 	);
 			
 	// Audio Codec controller
-	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK);
+	wire signed [15:0] audio_sample_l16;
+	wire signed [15:0] audio_sample_r16;
+	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK, audio_sample_l16, audio_sample_r16);
+	
+	wire [15:0] ram_address;
+	wire [7:0] ram_data;
+	wire ram_clock = AUD_BCLK;
+	wire ram_we = 0;
+	SPC700RAM apu_ram( 
+		.address(ram_address),
+		.data(ram_data),
+		.clock(ram_clock),
+		.write_enable(ram_we)
+	);
 
 	// Soft CPU
 	wire [15:0]CPU_R0;
@@ -123,14 +149,14 @@ module devboard(
 	
 	wire [8*4 - 1:0] dsp_voice_states_out;
 	wire [2:0] decoder_state;
-	wire [15:0] dsp_ram_addr = CPU_MEM_ADDRESS;
-	wire [7:0] dsp_ram_data = SW[7:0];
+	wire [15:0] dsp_ram_addr = ram_address;
+	wire [7:0] dsp_ram_data = ram_data;
 	wire [15:0] dsp_reg_address;
 	wire [7:0] dsp_reg_data_in;
 	wire [7:0] dsp_reg_data_out;
 	wire dsp_reg_write_enable;
-	wire [15:0] dsp_l;
-	wire [15:0] dsp_r;
+	wire signed [15:0] dsp_l = audio_sample_l16;
+	wire [15:0] dsp_r = audio_sample_r16;
 	wire [5:0] major_step;
 	
 	assign LEDR[0] = dsp_voice_states_out[4*0 + 3 : 4*0] == 4'd2;
@@ -155,7 +181,7 @@ module devboard(
 	  .dsp_reg_data_out(dsp_reg_data_out),
 	  .dsp_reg_write_enable(dsp_reg_write_enable),
 
-	  .clock(CLK_CPU),
+	  .clock(AUD_BCLK), 
 	  .reset(i2c_button_read),
 	  .dac_out_l(dsp_l),
 	  .dac_out_r(dsp_r),

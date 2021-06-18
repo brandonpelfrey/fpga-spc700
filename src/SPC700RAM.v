@@ -9,6 +9,9 @@ module SPC700RAM(
 parameter ADDRESS_BITS = 16;
 reg [7:0] storage [(2**ADDRESS_BITS)-1:0];
 
+// TODO : Testing BRR Playback
+initial $readmemh("../test_data/hk97.hex", storage);
+
 assign data = write_enable ? storage[address] : 8'bz;
 
 always @(posedge clock)

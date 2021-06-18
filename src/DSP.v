@@ -165,19 +165,19 @@ endgenerate
 reg [7:0] voice_clock_en = 8'b11111111;
 
 DSPVoiceDecoder decoders [7:0] (
-  {8{clock}} & voice_clock_en[7:0],
-  {8{reset}},
-  voice_states_out,
-  decoder_ram_address,
-  ram_data,
-  decoder_write_requests,
-  16'b0,
-  16'b0,
-  14'd4096,
-  decoder_output,
-  decoder_reached_end,
-  decoder_advance_trigger,
-  decoder_cursor);
+  .clock( {8{clock}} & voice_clock_en[7:0] ),
+  .reset( {8{reset}} ),
+  .state( voice_states_out ),
+  .ram_address(decoder_ram_address),
+  .ram_data(ram_data),
+  .ram_read_request( decoder_write_requests ), /// !!!!!! TODO FIXME BROKEN
+  .start_address( 16'b0 ),
+  .loop_address( 16'b0 ),
+  .pitch( 14'd2048 ),
+  .current_output( decoder_output ),
+  .reached_end( decoder_reached_end ),
+  .advance_trigger( decoder_advance_trigger ),
+  .cursor( decoder_cursor) );
 
 //////////////////////////////////////////////
 
@@ -241,12 +241,12 @@ always @(posedge clock) begin
 	if (reset == 1'b1) begin
 		major_step <= 63;
 		for(i=0; i<8; i=i+1) begin
-			decoder_advance_trigger[i] <= i == 0 ? 1 : 0;
+			decoder_advance_trigger[i] <= (i == 32'd0) ? 1'b1 : 1'b0;
 		end
 	end
 	  
 	if (reset == 1'b0) begin
-		major_step <= major_step + 1;
+		major_step <= major_step + 6'd1;
 		
 	  // Enable and disable clocking for each voice at the right times
 	  for(i=0; i<8; i=i+1) begin
@@ -266,8 +266,8 @@ always @(posedge clock) begin
 	  case (major_step)
 
 		 6'd63: begin
-			dac_out_l <= dac_sample_l[15:0];
-			dac_out_r <= dac_sample_r[15:0];
+			dac_out_l <= decoder_output[0];//dac_sample_l[15:0];
+			dac_out_r <= decoder_output[0];//dac_sample_r[15:0];
 		 end
 		 default: begin end
 	  endcase

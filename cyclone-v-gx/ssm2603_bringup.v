@@ -1,7 +1,7 @@
 module ssm2603_bringup(
 	input start_trigger,
 	input CLK_I2C,
-	output i2c_out,
+	output [7:0] i2c_out,
 	output i2c_start,
 	output i2c_end,
 	output i2c_write,
@@ -10,18 +10,20 @@ module ssm2603_bringup(
 	input i2c_error	
 );
 
-	localparam integer AUDIO_INIT_DATA [0:5*11 + 2 - 1][0:1] = '{
-		// 
+	localparam integer AUDIO_INIT_DATA [0:5*12 + 2 - 1][0:1] = '{
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 15 << 1}, '{4'b0010, 8'b00000000}, '{4'b0100, 8'b0},
+	
+		// Delay
 		'{4'b0001, 8'b0},
 		
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b00110000}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 6 << 1}, '{4'b0010, 8'b01110000}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 0 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 1 << 1}, '{4'b0010, 8'b10010111}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 2 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 3 << 1}, '{4'b0010, 8'b01100001}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 4 << 1}, '{4'b0010, 8'b00010000}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 5 << 1}, '{4'b0010, 8'b00000000}, '{4'b0100, 8'b0},
-		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 7 << 1}, '{4'b0010, 8'b00001110}, '{4'b0100, 8'b0},
+		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 7 << 1}, '{4'b0010, 8'b00001101}, '{4'b0100, 8'b0},
 		'{4'b1000, 8'b0}, '{4'b0010, 8'h34}, '{4'b0010, 8 << 1}, '{4'b0010, 8'b00011000}, '{4'b0100, 8'b0},
 		
 		// Delay
@@ -65,13 +67,14 @@ module ssm2603_bringup(
 				i2c_end <= 0;
 				i2c_write <= 0;
 				
-				if(i2c_error || i2c_queue_index == (5*11+2-1)) // Maybe done?
+				if(i2c_error || i2c_queue_index == (5*12+2-1)) // Maybe done?
 					i2c_queue_state <= 4'b1000;
 				else	
 					i2c_queue_state <= 4'b0000;
 			end
 			
 			4'b0010: begin
+			// ASSUMPTION NOTE: This presume that we are running this at ~1ms per I2C clock cycle.
 				if(i2c_wait_counter >= 50 ) begin // Wait ~50ms
 					i2c_queue_state <= 4'b0000;
 				end else begin

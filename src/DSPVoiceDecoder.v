@@ -30,7 +30,7 @@ output reg ram_read_request;
 input [15:0] start_address;
 input [15:0] loop_address;
 input [13:0] pitch;
-output reg [15:0] current_output; // Current 16-bit signed raw sample output 
+output reg signed [15:0] current_output; // Current 16-bit signed raw sample output 
 output reg reached_end;
 input advance_trigger;
 

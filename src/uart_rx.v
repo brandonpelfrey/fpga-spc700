@@ -3,18 +3,18 @@ module uart_rx
   #(parameter CLOCKS_PER_BIT = 8)
 (
   input clock,             // Used to drive state machine
-  output reg uart_data,    // UART input data line
-  output [7:0] byte_in,    // The received
+  input uart_data,         // UART input data line
+  output [7:0] byte_in,    // The received byte, valid when byte_ready is high
   output reg byte_ready,   // Pulse one clock cycle to initiate transmit
   input reset
 );
 
-localparam STATE_IDLE       = 0;
-localparam STATE_START_BIT  = 1;
-localparam STATE_READ_BITS = 2;
-localparam STATE_END_BIT    = 3;
+localparam STATE_IDLE       = 4'd0;
+localparam STATE_START_BIT  = 4'd1;
+localparam STATE_READ_BITS  = 4'd2;
+localparam STATE_END_BIT    = 4'd3;
 
-reg [3:0] state /* synthesis noprune */;
+reg [3:0] state /* synthesis noprune */ = STATE_IDLE;
 reg [7:0] bit_counter /* synthesis noprune */;
 reg [7:0] data_buff /* synthesis noprune */;
 reg [7:0] clock_counter /* synthesis noprune */;
@@ -24,7 +24,6 @@ assign byte_in[7:0] = data_buff[7:0];
 always @(posedge clock) begin
   if(reset) begin
     state <= STATE_IDLE;
-    uart_data <= 1;
   end
   else
   case (state) 
@@ -41,7 +40,7 @@ always @(posedge clock) begin
         clock_counter <= 0;
         bit_counter <= 1;
         state <= STATE_READ_BITS;
-        data_buff <= {7'b0, uart_data};
+        data_buff <= {uart_data, 7'b0};
       end else 
         clock_counter <= clock_counter + 1;
     end
@@ -51,12 +50,13 @@ always @(posedge clock) begin
         clock_counter <= 0;
         if(bit_counter == 7) begin
           // By this point, we're halfway into the middle of the stop bit
+			 data_buff   <= {uart_data, data_buff[7:1]};
           state        <= STATE_END_BIT;
           bit_counter  <= 0;
           byte_ready   <= 1;
         end else begin
           bit_counter <= bit_counter + 8'b1;
-          data_buff   <= {data_buff[6:0], uart_data};
+          data_buff   <= {uart_data, data_buff[7:1]};
         end
       end else
         clock_counter <= clock_counter + 8'b1;

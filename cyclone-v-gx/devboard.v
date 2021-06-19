@@ -93,7 +93,7 @@ module devboard(
 	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
 	
 	// UART
-	reg UART_BASE_CLK;
+	reg UART_BASE_CLK /* synthesis noprune */;
 	uart_clk_gen uart_clk_gen_0 (.refclk(CLK50), .outclk_0(UART_BASE_CLK));
 	
 	// UART_BASE_CLK is 14.745600, which is 32 * 460800
@@ -121,6 +121,29 @@ module devboard(
 	  .reset(0)
 	);
 	defparam uart_tx_0.CLOCKS_PER_BIT = 16;
+	
+	reg uart_rx_reg;
+	always @(posedge uart_clk)
+		uart_rx_reg <= UART_RX;
+	
+	wire [7:0] byte_in;
+	wire uart_rx_byte_ready;
+	uart_rx uart_rx_0 (
+	  .clock(uart_clk),
+	  .uart_data(uart_rx_reg),   
+	  .byte_in(byte_in),
+	  .byte_ready(uart_rx_byte_ready),
+	  .reset(0)
+	);
+	defparam uart_rx_0.CLOCKS_PER_BIT = 16;
+		
+	reg [7:0] uart_rx_byte_latch;
+	always @(posedge uart_clk)
+		if(uart_rx_byte_ready)
+			uart_rx_byte_latch <= byte_in;
+	
+	hexdisplay hex2(uart_rx_byte_latch[3:0], HEX2);
+	hexdisplay hex3(uart_rx_byte_latch[7:4], HEX3);
 	
 	reg [3:0] tx_state = 0;
 	always @(posedge uart_clk) begin
@@ -221,9 +244,6 @@ module devboard(
 	assign LEDR[5] = dsp_voice_states_out[4*5 + 3 : 4*5] == 4'd2;
 	assign LEDR[6] = dsp_voice_states_out[4*6 + 3 : 4*6] == 4'd2;
 	assign LEDR[7] = dsp_voice_states_out[4*7 + 3 : 4*7] == 4'd2;
-	
-	hexdisplay hex2(major_step[3:0], HEX2);
-	hexdisplay hex3(major_step[5:4], HEX3);
 	
 	DSP dsp(
 	  .ram_address(dsp_ram_addr),

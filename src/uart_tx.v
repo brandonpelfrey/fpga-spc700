@@ -15,10 +15,10 @@ localparam STATE_START_BIT  = 1;
 localparam STATE_WRITE_BITS = 2;
 localparam STATE_END_BIT    = 3;
 
-reg [3:0] state;
-reg [7:0] bit_counter;
-reg [7:0] data_buff;
-reg [7:0] clock_counter;
+reg [3:0] state /* synthesis noprune */;
+reg [7:0] bit_counter /* synthesis noprune */;
+reg [7:0] data_buff /* synthesis noprune */;
+reg [7:0] clock_counter /* synthesis noprune */;
 
 assign ready_to_transmit = state == STATE_IDLE;
 
@@ -45,7 +45,7 @@ always @(posedge clock) begin
         bit_counter   <= 0;
         uart_data     <= data_buff[0];
       end else
-        clock_counter <= clock_counter + 1;
+        clock_counter <= clock_counter + 8'b1;
     end
 
     STATE_WRITE_BITS: begin
@@ -56,12 +56,12 @@ always @(posedge clock) begin
           bit_counter   <= 0;
           uart_data     <= 1; // Pull high to begin the stop bit
         end else begin
-          bit_counter   <= bit_counter + 1;
+          bit_counter   <= bit_counter + 8'b1;
           uart_data     <= data_buff[1];
           data_buff     <= {1'b0, data_buff[7:1]};
         end
       end else
-        clock_counter <= clock_counter + 1;
+        clock_counter <= clock_counter + 8'b1;
     end
 
     STATE_END_BIT: begin
@@ -72,7 +72,7 @@ always @(posedge clock) begin
         clock_counter <= 0;
         bit_counter   <= 0;
       end else
-        clock_counter <= clock_counter + 1;
+        clock_counter <= clock_counter + 8'b1;
     end
 
   endcase

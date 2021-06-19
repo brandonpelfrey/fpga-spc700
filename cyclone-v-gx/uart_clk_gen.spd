@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<simPackage>
+ <file path="uart_clk_gen_sim/uart_clk_gen.vo" type="VERILOG" />
+ <topLevel name="uart_clk_gen" />
+ <deviceFamily name="cyclonev" />
+</simPackage>

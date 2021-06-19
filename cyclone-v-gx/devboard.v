@@ -42,13 +42,18 @@ module devboard(
 		CLK50,                  // Reference Clocks
 		HEX0, HEX1, HEX2, HEX3, // Output 7-segment Displays
 		I2C_SCLK, I2C_SDAT,     // I2C bus (HDMI, Audio)
-		AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK // Audio Codec (SSM2603)
+		AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK, // Audio Codec (SSM2603)
+		UART_TX, UART_RX
 );
 	// Clocks
 	input CLK50;
 	wire CLK_AUDIO;
 	wire CLK_I2C;
 	wire CLK_CPU;
+	
+	// UART
+	output UART_TX;
+	input  UART_RX;
 	
 	// User Input
 	input [9:0]SW;
@@ -78,17 +83,66 @@ module devboard(
 	clock_divider divider(CLK50, CLK_I2C, CLK_AUDIO, AUD_BCLK, CLK_CPU);
 	
 	// Push Button Controls
-	wire i2c_button_read;
-	wire i2c_button_write;
-	wire i2c_button_start;
-	wire i2c_button_end;
+	wire pb0_debounced;
 	wire pb1_debounced;
+	wire pb2_debounced;
 	wire pb3_debounced;
-	
-	button_debounce debouncer1(CLK_I2C, ~PB[0], i2c_button_read);
+	button_debounce debouncer1(CLK_I2C, ~PB[0], pb0_debounced);
 	button_debounce debouncer2(CLK_I2C, ~PB[1], pb1_debounced);
-	button_debounce debouncer3(CLK_I2C, ~PB[2], i2c_button_end);
+	button_debounce debouncer3(CLK_I2C, ~PB[2], pb2_debounced);
 	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
+	
+	// UART
+	reg UART_BASE_CLK;
+	uart_clk_gen uart_clk_gen_0 (.refclk(CLK50), .outclk_0(UART_BASE_CLK));
+	
+	// UART_BASE_CLK is 14.745600, which is 32 * 460800
+	reg [7:0] uart_clk_counter /* synthesis noprune */;
+	always @(posedge UART_BASE_CLK)
+		uart_clk_counter <= uart_clk_counter + 1;
+		
+	// the base clock counter is 128 times the actual baud. We use 8 clock
+	// cycles per bit, meaninng we should only divide by 16.
+	wire uart_clk = uart_clk_counter[0];
+	
+	reg [7:0]  uart_byte /* synthesis noprune */;
+	reg uart_tx_write /* synthesis noprune */;
+	wire uart_tx_ready;
+	
+	reg uart_tx_dat /* synthesis noprune */;
+	assign UART_TX = uart_tx_dat;
+	
+	uart_tx uart_tx_0 (
+	  .clock(uart_clk),
+	  .uart_data(uart_tx_dat),    
+	  .byte_out(uart_byte),    
+	  .write_trigger(uart_tx_write),    
+	  .ready_to_transmit(uart_tx_ready),
+	  .reset(0)
+	);
+	defparam uart_tx_0.CLOCKS_PER_BIT = 16;
+	
+	reg [3:0] tx_state = 0;
+	always @(posedge uart_clk) begin
+		case(tx_state) 
+			4'd0: begin
+				if(uart_tx_ready) begin
+					tx_state <= 1;
+					uart_byte <= uart_byte + 1;
+					uart_tx_write <= 1;
+				end
+			end
+			
+			4'd1: begin
+				uart_tx_write <= 0;
+				tx_state <= 2;
+			end
+			
+			4'd2: begin
+				tx_state <= 0;
+			end
+		endcase
+	end
 	
 	// I2C Master
 	reg i2c_start, i2c_end, i2c_write, i2c_read;
@@ -182,7 +236,7 @@ module devboard(
 	  .dsp_reg_write_enable(dsp_reg_write_enable),
 
 	  .clock(AUD_BCLK), 
-	  .reset(i2c_button_read),
+	  .reset(debounced_pb0),
 	  .dac_out_l(dsp_l),
 	  .dac_out_r(dsp_r),
 	  .voice_states_out(dsp_voice_states_out),

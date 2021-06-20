@@ -12,7 +12,7 @@ class FPGAController:
       timeout=None
     )
 
-  def reset(self):
+  def reset_apu(self):
     '''Reset the system DSP / CPU'''
     self.ser.write([0])
     print("Sent APU reset")
@@ -20,6 +20,6 @@ class FPGAController:
 
 if __name__ == '__main__':
   controller = FPGAController("/dev/ttyUSB0")
-  if '--reset-dsp' in sys.argv:
-    controller.reset()
+  if '--reset-apu' in sys.argv:
+    controller.reset_apu()
 

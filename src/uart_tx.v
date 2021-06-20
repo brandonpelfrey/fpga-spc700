@@ -1,6 +1,6 @@
 
 module uart_tx 
-  #(parameter CLOCKS_PER_BIT = 8)
+  #(parameter CLOCKS_PER_BIT = 40)
 (
   input clock,             // Used to drive state machine
   output reg uart_data,    // UART output data line

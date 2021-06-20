@@ -12,7 +12,7 @@
 # or its authorized distributors. Please refer to the applicable 
 # agreement for further details.
 
-# ACDS 20.1 720 linux 2021.06.18.12:53:26
+# ACDS 20.1 720 linux 2021.06.19.16:29:18
 
 # ----------------------------------------
 # vcs - auto-generated simulation script
@@ -20,7 +20,7 @@
 # ----------------------------------------
 # This script provides commands to simulate the following IP detected in
 # your Quartus project:
-#     uart_clk_gen
+#     main_clk_gen
 # 
 # Altera recommends that you source this Quartus-generated IP simulation
 # script from your own customized top-level script, and avoid editing this
@@ -83,7 +83,7 @@
 # 
 # IP SIMULATION SCRIPT
 # ----------------------------------------
-# If uart_clk_gen is one of several IP cores in your
+# If main_clk_gen is one of several IP cores in your
 # Quartus project, you can generate a simulation script
 # suitable for inclusion in your top-level simulation
 # script by running the following command line:
@@ -94,10 +94,10 @@
 # within the Quartus project, and generate a unified
 # script which supports all the Altera IP within the design.
 # ----------------------------------------
-# ACDS 20.1 720 linux 2021.06.18.12:53:26
+# ACDS 20.1 720 linux 2021.06.19.16:29:18
 # ----------------------------------------
 # initialize variables
-TOP_LEVEL_NAME="uart_clk_gen"
+TOP_LEVEL_NAME="main_clk_gen"
 QSYS_SIMDIR="./../../"
 QUARTUS_INSTALL_DIR="/home/brandon/intel/intelFPGA_lite/20.1/quartus/"
 SKIP_FILE_COPY=0
@@ -143,7 +143,7 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   -v $QUARTUS_INSTALL_DIR/eda/sim_lib/cyclonev_hssi_atoms.v \
   -v $QUARTUS_INSTALL_DIR/eda/sim_lib/synopsys/cyclonev_pcie_hip_atoms_ncrypt.v \
   -v $QUARTUS_INSTALL_DIR/eda/sim_lib/cyclonev_pcie_hip_atoms.v \
-  $QSYS_SIMDIR/uart_clk_gen.vo \
+  $QSYS_SIMDIR/main_clk_gen.vo \
   -top $TOP_LEVEL_NAME
 # ----------------------------------------
 # simulate

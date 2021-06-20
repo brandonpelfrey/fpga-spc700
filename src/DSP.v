@@ -173,7 +173,7 @@ DSPVoiceDecoder decoders [7:0] (
   .ram_read_request( decoder_write_requests ), /// !!!!!! TODO FIXME BROKEN
   .start_address( 16'b0 ),
   .loop_address( 16'b0 ),
-  .pitch( 14'd2048 ),
+  .pitch( 14'd1024),
   .current_output( decoder_output ),
   .reached_end( decoder_reached_end ),
   .advance_trigger( decoder_advance_trigger ),

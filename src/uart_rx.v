@@ -1,6 +1,6 @@
 
 module uart_rx 
-  #(parameter CLOCKS_PER_BIT = 8)
+  #(parameter CLOCKS_PER_BIT = 40)
 (
   input clock,             // Used to drive state machine
   input uart_data,         // UART input data line
@@ -42,7 +42,7 @@ always @(posedge clock) begin
         state <= STATE_READ_BITS;
         data_buff <= {uart_data, 7'b0};
       end else 
-        clock_counter <= clock_counter + 1;
+        clock_counter <= clock_counter + 8'd1;
     end
 
     STATE_READ_BITS: begin

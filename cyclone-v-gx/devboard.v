@@ -1,86 +1,96 @@
-module clock_divider(input_clock, i2c_clock, audio_clock, audio_bclk, cpu_clock);
-	input input_clock;
+module clock_divider(
+	input in_50_mhz, 
 	
-	output i2c_clock;
-	output audio_clock;
-	output audio_bclk;
-	output cpu_clock;
+	output out_18_432_mhz,
+	output out_audio_mclk,
+	output out_audio_bclk,
+	output out_i2c_clock
+);
 	
-	reg [27:0] divider_state;
+	// Main clock for the system is 18.432 Mhz which supports common UART 
+	// baud rates as well as the N*32 Khz frequencies needed for the audio
+	// system.
+	main_clk_gen clk_gen(
+		.refclk(in_50_mhz),
+		.outclk_0(out_18_432_mhz)
+	);
 	
-	assign i2c_clock = divider_state[15];
-	assign cpu_clock = divider_state[21];
+	// Audio clocks (SSM2603 Data sheet, page 26)
+	// - MCLK can be 18.432 Mhz with SR mode b0110
+	// - BCLK == (32,000 samp/sec * 2 channels * 32bits/samp) = 2.048 Mhz
+	//   - (This means BCLK is main clock / 9)
+	//     This isn't an even multiple :( . But we do 4 cycles low, 5 cycles high
 	
-	wire clk_12288mhz = divider_state[1];
-	
-	// MCLK is 384 * sample rate (=32 Khz) = 12.288 Mhz
-	wire mclk = clk_12288mhz;
-	
-	// BCLK is sample rate (32 Khz) * 2 * 32 = 2.048 Mhz (= mclk / 6)
-	reg bclk;
-	reg [31:0] bclk_counter;
-	always @(posedge clk_12288mhz) begin
-		if(bclk_counter == 32'd5) begin
-			bclk_counter <= 0;
-			bclk <= ~bclk;
-		end else
-			bclk_counter <= bclk_counter + 32'd1;
-	end
-	
-	assign audio_clock = mclk;
-	assign audio_bclk = bclk;
+	reg [3:0] bclk_counter = 0;
+	reg bclk_tictoc;
+	always @(posedge out_18_432_mhz) begin
+		bclk_counter <= (bclk_counter == 4'd8) ? 0 : bclk_counter + 4'd1;
 		
-	always @(posedge input_clock)
-	begin
-		divider_state <= divider_state + 24'd1;
+		if(bclk_counter == 4'd8)
+			bclk_tictoc <= 0;
+		if(bclk_counter == 4'd3)
+			bclk_tictoc <= 1;			
 	end
+	
+	assign out_audio_mclk = out_18_432_mhz;
+	assign out_audio_bclk = bclk_tictoc;
+	
+	// UART clocking
+	// 115200 baud ~ 160 main clock cycles per uart clock tick
+	// 460800 baud ~ 40  main clock cycles per uart clock tick
+	// UART modules internally handle clock division so we don't produce signals here.
+	
+	// I2C clocking ~ 18.432 Mhz / 2^10 = 18 Khz
+	reg [11:0] i2c_counter;
+	always @(posedge out_18_432_mhz)
+		i2c_counter <= i2c_counter + 12'd1;
+		
+	assign out_i2c_clock = i2c_counter[9];
+	
 endmodule
 
 module devboard(
-		SW, PB,                 // Input Switches
-		LEDR, LEDG,             // Output LEDs
-		CLK50,                  // Reference Clocks
-		HEX0, HEX1, HEX2, HEX3, // Output 7-segment Displays
-		I2C_SCLK, I2C_SDAT,     // I2C bus (HDMI, Audio)
-		AUD_XCK, AUD_BCLK, AUD_DACDAT, AUD_DACLRCK, // Audio Codec (SSM2603)
-		UART_TX, UART_RX
+	input  [9:0] SW, 
+	input  [3:0] PB,
+	output [9:0] LEDR, 
+	output [7:0] LEDG,
+	
+	input CLK50,  // Reference Clock
+	
+	output [6:0] HEX0,   // Output 7-segment Displays
+	output [6:0] HEX1, 
+	output [6:0] HEX2,
+	output [6:0] HEX3, 
+	
+	output I2C_SCLK, // I2C bus (HDMI, Audio)
+	inout I2C_SDAT,     
+	
+	output AUD_MCLK,  // Audio Codec (SSM2603)
+	output AUD_BCLK,
+	output AUD_DACDAT,
+	output AUD_DACLRCK, 
+	
+	output UART_TX, // UART
+	input UART_RX
 );
 	// Clocks
-	input CLK50;
 	wire CLK_AUDIO;
 	wire CLK_I2C;
-	wire CLK_CPU;
+		
+	assign AUD_MCLK = CLK_AUDIO;
+	wire uart_clk;
+	wire clk_18_432_mhz;
 	
-	// UART
-	output UART_TX;
-	input  UART_RX;
+	// Clock Generation
+	clock_divider divider(
+		.in_50_mhz(CLK50),
+		.out_18_432_mhz(clk_18_432_mhz),
+		.out_audio_mclk(CLK_AUDIO),
+		.out_audio_bclk(AUD_BCLK),
+		.out_i2c_clock(CLK_I2C)
+	);
 	
-	// User Input
-	input [9:0]SW;
-	input [3:0]PB;
-	
-	// LED / Displays
-	output [6:0]HEX0;
-	output [6:0]HEX1;
-	output [6:0]HEX2;
-	output [6:0]HEX3;
-	output [9:0]LEDR;
-	output [7:0]LEDG;
-	
-	// I2C
-	output I2C_SCLK;
-	inout wire I2C_SDAT;
-	
-	// Audio Codec
-	output AUD_XCK; // Master clock
-	output AUD_BCLK;
-	output AUD_DACDAT;
-	output AUD_DACLRCK;
-	
-	assign AUD_XCK = CLK_AUDIO;
-	
-	// Clock Control
-	clock_divider divider(CLK50, CLK_I2C, CLK_AUDIO, AUD_BCLK, CLK_CPU);
+	assign uart_clk = clk_18_432_mhz;
 	
 	// Push Button Controls
 	wire pb0_debounced;
@@ -92,50 +102,33 @@ module devboard(
 	button_debounce debouncer3(CLK_I2C, ~PB[2], pb2_debounced);
 	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
 	
-	// UART
-	reg UART_BASE_CLK /* synthesis noprune */;
-	uart_clk_gen uart_clk_gen_0 (.refclk(CLK50), .outclk_0(UART_BASE_CLK));
+	wire dsp_reset;
 	
-	// UART_BASE_CLK is 14.745600, which is 32 * 460800
-	reg [7:0] uart_clk_counter /* synthesis noprune */;
-	always @(posedge UART_BASE_CLK)
-		uart_clk_counter <= uart_clk_counter + 1;
-		
-	// the base clock counter is 128 times the actual baud. We use 8 clock
-	// cycles per bit, meaninng we should only divide by 16.
-	wire uart_clk = uart_clk_counter[0];
-	
+	// UART	
 	reg [7:0]  uart_byte /* synthesis noprune */;
 	reg uart_tx_write /* synthesis noprune */;
 	wire uart_tx_ready;
 	
-	reg uart_tx_dat /* synthesis noprune */;
-	assign UART_TX = uart_tx_dat;
-	
 	uart_tx uart_tx_0 (
 	  .clock(uart_clk),
-	  .uart_data(uart_tx_dat),    
+	  .uart_data(UART_TX),    
 	  .byte_out(uart_byte),    
 	  .write_trigger(uart_tx_write),    
 	  .ready_to_transmit(uart_tx_ready),
 	  .reset(0)
 	);
-	defparam uart_tx_0.CLOCKS_PER_BIT = 16;
-	
-	reg uart_rx_reg;
-	always @(posedge uart_clk)
-		uart_rx_reg <= UART_RX;
+	defparam uart_tx_0.CLOCKS_PER_BIT = 40;
 	
 	wire [7:0] byte_in;
 	wire uart_rx_byte_ready;
 	uart_rx uart_rx_0 (
 	  .clock(uart_clk),
-	  .uart_data(uart_rx_reg),   
+	  .uart_data(UART_RX),   
 	  .byte_in(byte_in),
 	  .byte_ready(uart_rx_byte_ready),
 	  .reset(0)
 	);
-	defparam uart_rx_0.CLOCKS_PER_BIT = 16;
+	defparam uart_rx_0.CLOCKS_PER_BIT = 40;
 		
 	reg [7:0] uart_rx_byte_latch;
 	always @(posedge uart_clk)
@@ -144,28 +137,35 @@ module devboard(
 	
 	hexdisplay hex2(uart_rx_byte_latch[3:0], HEX2);
 	hexdisplay hex3(uart_rx_byte_latch[7:4], HEX3);
+//	
+//	reg [3:0] tx_state = 0;
+//	always @(posedge uart_clk) begin
+//		case(tx_state) 
+//			4'd0: begin
+//				if(uart_tx_ready) begin
+//					tx_state <= 1;
+//					uart_byte <= uart_byte + 1;
+//					uart_tx_write <= 1;
+//				end
+//			end
+//			
+//			4'd1: begin
+//				uart_tx_write <= 0;
+//				tx_state <= 2;
+//			end
+//			
+//			4'd2: begin
+//				tx_state <= 0;
+//			end
+//		endcase
+//	end
 	
-	reg [3:0] tx_state = 0;
-	always @(posedge uart_clk) begin
-		case(tx_state) 
-			4'd0: begin
-				if(uart_tx_ready) begin
-					tx_state <= 1;
-					uart_byte <= uart_byte + 1;
-					uart_tx_write <= 1;
-				end
-			end
-			
-			4'd1: begin
-				uart_tx_write <= 0;
-				tx_state <= 2;
-			end
-			
-			4'd2: begin
-				tx_state <= 0;
-			end
-		endcase
-	end
+	uart_processor uart_processor_0 (
+		.clock(uart_clk),
+		.in_uart_byte(byte_in),
+	   .in_uart_byte_ready(uart_rx_byte_ready),
+		.reset(dsp_reset)
+	);
 	
 	// I2C Master
 	reg i2c_start, i2c_end, i2c_write, i2c_read;
@@ -211,7 +211,7 @@ module devboard(
 	wire [15:0]CPU_MEM_ADDRESS;
 		
 	// Debug Outputs
-	assign LEDG[0] = CLK_CPU;
+	//assign LEDG[0] = CLK_CPU;
 	assign LEDG[1] = pb1_debounced;
 	assign LEDG[3] = i2c_start;
 	assign LEDG[4] = i2c_end;
@@ -256,7 +256,7 @@ module devboard(
 	  .dsp_reg_write_enable(dsp_reg_write_enable),
 
 	  .clock(AUD_BCLK), 
-	  .reset(debounced_pb0),
+	  .reset(dsp_reset),
 	  .dac_out_l(dsp_l),
 	  .dac_out_r(dsp_r),
 	  .voice_states_out(dsp_voice_states_out),

@@ -1,5 +1,5 @@
 `timescale 1ns/10ps
-module  uart_clk_gen_0002(
+module  main_clk_gen_0002(
 
 	// interface 'refclk'
 	input wire refclk,
@@ -19,7 +19,7 @@ module  uart_clk_gen_0002(
 		.reference_clock_frequency("50.0 MHz"),
 		.operation_mode("direct"),
 		.number_of_clocks(1),
-		.output_clock_frequency0("14.745600 MHz"),
+		.output_clock_frequency0("18.432000 MHz"),
 		.phase_shift0("0 ps"),
 		.duty_cycle0(50),
 		.output_clock_frequency1("0 MHz"),

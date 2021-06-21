@@ -102,8 +102,6 @@ module devboard(
 	button_debounce debouncer3(CLK_I2C, ~PB[2], pb2_debounced);
 	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
 	
-	wire dsp_reset;
-	
 	// UART	
 	reg [7:0]  uart_byte /* synthesis noprune */;
 	reg uart_tx_write /* synthesis noprune */;
@@ -137,34 +135,15 @@ module devboard(
 	
 	hexdisplay hex2(uart_rx_byte_latch[3:0], HEX2);
 	hexdisplay hex3(uart_rx_byte_latch[7:4], HEX3);
-//	
-//	reg [3:0] tx_state = 0;
-//	always @(posedge uart_clk) begin
-//		case(tx_state) 
-//			4'd0: begin
-//				if(uart_tx_ready) begin
-//					tx_state <= 1;
-//					uart_byte <= uart_byte + 1;
-//					uart_tx_write <= 1;
-//				end
-//			end
-//			
-//			4'd1: begin
-//				uart_tx_write <= 0;
-//				tx_state <= 2;
-//			end
-//			
-//			4'd2: begin
-//				tx_state <= 0;
-//			end
-//		endcase
-//	end
 	
+	wire apu_reset;
+	wire audio_reset;
 	uart_processor uart_processor_0 (
 		.clock(uart_clk),
 		.in_uart_byte(byte_in),
 	   .in_uart_byte_ready(uart_rx_byte_ready),
-		.reset(dsp_reset)
+		.apu_reset(apu_reset),
+		.audio_reset(audio_reset)
 	);
 	
 	// I2C Master
@@ -179,7 +158,7 @@ module devboard(
 	               i2c_error, i2c_ready, i2c_in, i2c_out);
 
 	ssm2603_bringup audio_bringup(
-		.start_trigger(pb3_debounced),
+		.start_trigger(audio_reset),
 		.CLK_I2C(CLK_I2C),
 		.i2c_out(i2c_out),
 		.i2c_start(i2c_start),
@@ -256,7 +235,7 @@ module devboard(
 	  .dsp_reg_write_enable(dsp_reg_write_enable),
 
 	  .clock(AUD_BCLK), 
-	  .reset(dsp_reset),
+	  .reset(apu_reset),
 	  .dac_out_l(dsp_l),
 	  .dac_out_r(dsp_r),
 	  .voice_states_out(dsp_voice_states_out),

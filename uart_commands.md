@@ -16,6 +16,7 @@
 ```
 # General Functions
 0x00 : Get Status -> ??
+0x01 : Reset Audio Codec
 
 # RAM Functions
 0x10 : Set RAM, 1 Byte         (+2 address, + 1 value) -> 0

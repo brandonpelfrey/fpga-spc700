@@ -18,19 +18,13 @@ module ssm2603_codec(
 	reg audio_lrck;
 	reg audio_dacdat;
 	
-	// Testing only
-//	reg signed [31:0] sin_data [0:63] /* synthesis ram_init_file = "sin_data.mif" */;
-//	reg [5:0] sin_data_index = 0;
 	reg signed [31:0] target_sample;
 	
 	assign AUD_DACDAT = audio_dacdat;
 	assign AUD_DACLRCK = audio_lrck;
 	
 	always @(negedge AUD_BCLK)
-	begin
-		// 50000000 / 4 = mclk; mclk / 4 = bclk ~= 12.288Mhz. 12.288Mhz / (32000 s/sec) = 96 clocks per LR sample pair
-		// 96 clocks per LR pair. Need lrck set low during #95, then high during 47
-		
+	begin		
 		// Left justified, with lrck high = Left channel
 		if(frame_position == 63)
 			audio_lrck <= 1;
@@ -42,14 +36,7 @@ module ssm2603_codec(
 			next_audio_sample_r <= {in_r16[15:0], 16'b0};
 		end
 		
-		if (frame_position == 63) begin
-//       target_sample <= target_sample + 32'd134217 * 32'd440;
-//			sin_data_index <= sin_data_index + 6'b1;
-//			target_sample <= sin_data[sin_data_index];
-//			audio_sample_l <= {target_sample[30:0], 1'b0};
-//			audio_sample_r <= 32'b0;
-//			audio_dacdat <= target_sample[31];
-			
+		if (frame_position == 63) begin			
 			frame_position <= 0;
 			audio_sample_l <= {next_audio_sample_l[30:0], 1'b0};
 			audio_sample_r <= next_audio_sample_r[31:0];

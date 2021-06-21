@@ -6,7 +6,8 @@ module uart_processor (
   input in_uart_byte_ready,
 
   // Output reset
-  output reset
+  output reg apu_reset,
+  output reg audio_reset
 );
 
 reg [7:0] incoming_buffer [511:0]; // Data coming from the host
@@ -18,14 +19,12 @@ reg [8:0] outgoing_buffer_index;
 reg [7:0] state /* synthesis noprune */ = 0;
 reg [31:0] counter /* synthesis noprune */;
 
-reg reset_driver = 1'b0;
-assign reset = reset_driver;
-
 localparam STATE_IDLE = 0;
 localparam STATE_PROCESSING = 1;
 localparam STATE_CLEANUP = 2;
 
-localparam CMD_RESET = 0;
+localparam CMD_APU_RESET   = 8'h22;
+localparam CMD_AUDIO_RESET = 8'h01;
 
 always @(posedge clock) begin
   case(state)
@@ -41,13 +40,23 @@ always @(posedge clock) begin
 
     STATE_PROCESSING: begin
       case(incoming_buffer[0][7:0])
-        CMD_RESET: begin
+        CMD_APU_RESET: begin
 			 if(counter == 0) begin
-				reset_driver <= 1;
+				apu_reset <= 1;
 			 end
 			 if(counter < 32'd200000)
 				counter <= counter + 1;
-			 if(counter == 32'd200000)
+			 else
+				state <= STATE_CLEANUP;
+        end
+		  
+		  CMD_AUDIO_RESET: begin
+			 if(counter == 0) begin
+				audio_reset <= 1;
+			 end
+			 if(counter < 32'd200000)
+				counter <= counter + 1;
+			 else
 				state <= STATE_CLEANUP;
         end
 		  
@@ -58,8 +67,9 @@ always @(posedge clock) begin
     end
 
     STATE_CLEANUP: begin
-      state <= STATE_IDLE;
-      reset_driver <= 1'b0;
+      state       <= STATE_IDLE;
+      apu_reset   <= 1'b0;
+		audio_reset <= 1'b0;
     end
 
   endcase

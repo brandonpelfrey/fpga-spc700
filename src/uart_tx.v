@@ -25,6 +25,8 @@ assign ready_to_transmit = state == STATE_IDLE;
 always @(posedge clock) begin
   if(reset) begin
     state <= STATE_IDLE;
+	 clock_counter <= 0;
+	 bit_counter <= 0;
     uart_data <= 1;
   end
   else

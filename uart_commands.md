@@ -19,8 +19,7 @@
 0x01 : Reset Audio Codec
 
 # RAM Functions
-0x10 : Set RAM, 1 Byte         (+2 address, + 1 value) -> 0
-0x11 : Set RAM, Variable Bytes (+2 address, +1 N bytes, +N data bytes)
+0x10 : Set RAM, 1-256 Bytes (+2 address, +1 byte encoding (N-1), +N data bytes)
 
 # DSP Functions
 0x20 : Set DSP Register   (+1 byte address, +1 byte value)

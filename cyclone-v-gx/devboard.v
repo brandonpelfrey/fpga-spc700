@@ -1,7 +1,7 @@
 module clock_divider(
 	input in_50_mhz, 
 	
-	output out_18_432_mhz,
+	output out_18_432_mhz /* synthesis noprune */,
 	output out_audio_mclk,
 	output out_audio_bclk,
 	output out_i2c_clock
@@ -102,29 +102,32 @@ module devboard(
 	button_debounce debouncer3(CLK_I2C, ~PB[2], pb2_debounced);
 	button_debounce debouncer4(CLK_I2C, ~PB[3], pb3_debounced);
 	
-	// UART	
-	reg [7:0]  uart_byte /* synthesis noprune */;
-	reg uart_tx_write /* synthesis noprune */;
-	wire uart_tx_ready;
+	// UART Transmitter
+	wire [7:0]  uart_byte /* synthesis noprune */;
+	wire uart_tx_write /* synthesis noprune */;
+	wire uart_tx_idle;
+	wire uart_tx_reset;
 	
 	uart_tx uart_tx_0 (
-	  .clock(uart_clk),
-	  .uart_data(UART_TX),    
-	  .byte_out(uart_byte),    
-	  .write_trigger(uart_tx_write),    
-	  .ready_to_transmit(uart_tx_ready),
-	  .reset(0)
+		.clock(uart_clk),
+		.uart_data(UART_TX),
+		.byte_out(uart_byte),
+		.write_trigger(uart_tx_write),
+		.ready_to_transmit(uart_tx_idle),
+		.reset(uart_tx_reset)
 	);
 	defparam uart_tx_0.CLOCKS_PER_BIT = 40;
 	
+	// UART Receiver
 	wire [7:0] byte_in;
 	wire uart_rx_byte_ready;
+	wire uart_rx_reset;
 	uart_rx uart_rx_0 (
-	  .clock(uart_clk),
-	  .uart_data(UART_RX),   
-	  .byte_in(byte_in),
-	  .byte_ready(uart_rx_byte_ready),
-	  .reset(0)
+		.clock(uart_clk),
+		.uart_data(UART_RX),
+		.byte_in(byte_in),
+		.byte_ready(uart_rx_byte_ready),
+		.reset(uart_rx_reset)
 	);
 	defparam uart_rx_0.CLOCKS_PER_BIT = 40;
 		
@@ -133,18 +136,33 @@ module devboard(
 		if(uart_rx_byte_ready)
 			uart_rx_byte_latch <= byte_in;
 	
-	hexdisplay hex2(uart_rx_byte_latch[3:0], HEX2);
-	hexdisplay hex3(uart_rx_byte_latch[7:4], HEX3);
-	
+	// UART Command Processor
 	wire apu_reset;
 	wire audio_reset;
+	
 	uart_processor uart_processor_0 (
 		.clock(uart_clk),
 		.in_uart_byte(byte_in),
 	   .in_uart_byte_ready(uart_rx_byte_ready),
+		.out_uart_rx_reset(uart_rx_reset),
 		.apu_reset(apu_reset),
-		.audio_reset(audio_reset)
+		.audio_reset(audio_reset),
+		
+		.tx_uart_idle(uart_tx_idle),
+		.out_uart_byte(uart_byte),
+		.out_uart_byte_ready(uart_tx_write),
+		.out_uart_tx_reset(uart_tx_reset),
+		
+		.ram_address(ram_ctrl_address),
+		.ram_data_write(ram_ctrl_data_in),
+		.ram_data_read(ram_ctrl_data_out),
+		.ram_we(ram_ctrl_we)
 	);
+	
+	//////////////////////////////////////////
+	
+	hexdisplay hex2(uart_rx_byte_latch[3:0], HEX2);
+	hexdisplay hex3(uart_rx_byte_latch[7:4], HEX3);
 	
 	// I2C Master
 	reg i2c_start, i2c_end, i2c_write, i2c_read;
@@ -157,6 +175,10 @@ module devboard(
 	               i2c_start, i2c_end, i2c_write, i2c_read,
 	               i2c_error, i2c_ready, i2c_in, i2c_out);
 
+	// Audio Codec controller and bring-up
+	wire signed [15:0] audio_sample_l16;
+	wire signed [15:0] audio_sample_r16;
+	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK, audio_sample_l16, audio_sample_r16);
 	ssm2603_bringup audio_bringup(
 		.start_trigger(audio_reset),
 		.CLK_I2C(CLK_I2C),
@@ -168,22 +190,39 @@ module devboard(
 		.i2c_ready(i2c_ready),
 		.i2c_error(i2c_error)	
 	);
-			
-	// Audio Codec controller
-	wire signed [15:0] audio_sample_l16;
-	wire signed [15:0] audio_sample_r16;
-	ssm2603_codec audio_codec(AUD_BCLK, AUD_DACDAT, AUD_DACLRCK, audio_sample_l16, audio_sample_r16);
+		
+  wire [15:0] ram_apu_address;
+  wire [7:0]  ram_apu_data_in;
+  wire [7:0]  ram_apu_data_out;
+  wire        ram_apu_we;
+  
+  wire [15:0] ram_ctrl_address;
+  wire [7:0]  ram_ctrl_data_in;
+  wire [7:0]  ram_ctrl_data_out;
+  wire        ram_ctrl_we;
+  
+  SPC700RAM apu_ram(
+    .in_apu_address(ram_apu_address),
+ 	 .in_apu_data(ram_apu_data_in), 
+	 .out_apu_data(ram_apu_data_out),
+	 .in_apu_we(ram_apu_we),
+
+	 .in_ctrl_address(ram_ctrl_address),
+	 .in_ctrl_data(ram_ctrl_data_in),
+	 .out_ctrl_data(ram_ctrl_data_out),
+	 .in_ctrl_we(ram_ctrl_we),
+
+	 .clock(clk_18_432_mhz)
+  );
+  
+  assign ram_apu_data_in[7:0] = 8'b0;
 	
-	wire [15:0] ram_address;
-	wire [7:0] ram_data;
-	wire ram_clock = AUD_BCLK;
-	wire ram_we = 0;
-	SPC700RAM apu_ram( 
-		.address(ram_address),
-		.data(ram_data),
-		.clock(ram_clock),
-		.write_enable(ram_we)
-	);
+	/////////////////////////////////////////////////////////////
+	
+	wire apu_clock = AUD_BCLK;
+
+	
+	/////////////////////////////////////////////////////////////
 
 	// Soft CPU
 	wire [15:0]CPU_R0;
@@ -200,13 +239,9 @@ module devboard(
 	
 	hexdisplay hex0(CPU_MEM_ADDRESS[3:0],   HEX0);
 	hexdisplay hex1(CPU_MEM_ADDRESS[7:4],   HEX1);
-//	hexdisplay hex2(CPU_MEM_ADDRESS[11:8],  HEX2);
-//	hexdisplay hex3(CPU_MEM_ADDRESS[15:12], HEX3);
 	
 	wire [8*4 - 1:0] dsp_voice_states_out;
 	wire [2:0] decoder_state;
-	wire [15:0] dsp_ram_addr = ram_address;
-	wire [7:0] dsp_ram_data = ram_data;
 	wire [15:0] dsp_reg_address;
 	wire [7:0] dsp_reg_data_in;
 	wire [7:0] dsp_reg_data_out;
@@ -225,16 +260,16 @@ module devboard(
 	assign LEDR[7] = dsp_voice_states_out[4*7 + 3 : 4*7] == 4'd2;
 	
 	DSP dsp(
-	  .ram_address(dsp_ram_addr),
-	  .ram_data(dsp_ram_data),
-	  .ram_write_enable(0),
+	  .ram_address(ram_apu_address),
+	  .ram_data(ram_apu_data_out),
+	  .ram_write_enable(ram_apu_we),
 
 	  .dsp_reg_address(dsp_reg_address),
 	  .dsp_reg_data_in(dsp_reg_data_in),
 	  .dsp_reg_data_out(dsp_reg_data_out),
 	  .dsp_reg_write_enable(dsp_reg_write_enable),
 
-	  .clock(AUD_BCLK), 
+	  .clock(apu_clock), 
 	  .reset(apu_reset),
 	  .dac_out_l(dsp_l),
 	  .dac_out_r(dsp_r),

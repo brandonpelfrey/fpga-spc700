@@ -36,9 +36,9 @@ always @(posedge clock) begin
 
     STATE_START_BIT: begin
       // Get us to the middle of the first data bit, read it in
-      if(clock_counter == CLOCKS_PER_BIT + (CLOCKS_PER_BIT-1)/2) begin
+      if(clock_counter == CLOCKS_PER_BIT + CLOCKS_PER_BIT/2) begin
         clock_counter <= 0;
-        bit_counter <= 1;
+        bit_counter   <= 1;
         state <= STATE_READ_BITS;
         data_buff <= {uart_data, 7'b0};
       end else 
@@ -48,15 +48,15 @@ always @(posedge clock) begin
     STATE_READ_BITS: begin
       if(clock_counter == (CLOCKS_PER_BIT-1)) begin
         clock_counter <= 0;
+		  data_buff   <= {uart_data, data_buff[7:1]};
+		  
         if(bit_counter == 7) begin
           // By this point, we're halfway into the middle of the stop bit
-			 data_buff   <= {uart_data, data_buff[7:1]};
           state        <= STATE_END_BIT;
           bit_counter  <= 0;
           byte_ready   <= 1;
         end else begin
           bit_counter <= bit_counter + 8'b1;
-          data_buff   <= {uart_data, data_buff[7:1]};
         end
       end else
         clock_counter <= clock_counter + 8'b1;

@@ -123,22 +123,43 @@ always @(*) begin
 end
 
 // Write to Reg
-always @(posedge clock) begin
-  if(dsp_reg_write_enable) begin
-    casez (dsp_reg_address)
-      8'h?0: VxVOLL[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;  
-      8'h?1: VxVOLR[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
-      8'h?2: VxPL[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
-      8'h?3: VxPH[ dsp_reg_address[6:4] ]   <= dsp_reg_data_in;
-      8'h?8: VxENVX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in & 8'b0111_1111;  
-      8'h?9: VxOUTX[ dsp_reg_address[6:4] ] <= dsp_reg_data_in;
+generate
+for(gi=0; gi<N_VOICES; gi=gi+1) begin:per_voice_reset_logic
+	always @(posedge clock) begin
+	  if(reset) begin
+	    VxVOLL[ gi ] <= 8'b01111111 >>> 2;
+		 VxVOLR[ gi ] <= 8'b01111111 >>> 2;
+		 VxENVX[ gi ] <= 8'b01111111;
+	  end else
+	  if(dsp_reg_write_enable) begin
+		 casez (dsp_reg_address)
+			{gi[3:0],4'h0}: VxVOLL[ gi ] <= dsp_reg_data_in;  
+			{gi[3:0],4'h1}: VxVOLR[ gi ] <= dsp_reg_data_in;
+			{gi[3:0],4'h2}: VxPL  [ gi ] <= dsp_reg_data_in;
+			{gi[3:0],4'h3}: VxPH  [ gi ] <= dsp_reg_data_in;
+			{gi[3:0],4'h8}: VxENVX[ gi ] <= dsp_reg_data_in & 8'b0111_1111;  
+			{gi[3:0],4'h9}: VxOUTX[ gi ] <= dsp_reg_data_in;
+			default: begin end
+		 endcase
+	  end
+	end
+end
+endgenerate
 
-      8'h0C: MVOLL <= dsp_reg_data_in;
-      8'h1C: MVOLR <= dsp_reg_data_in;
-      8'h2C: EVOLL <= dsp_reg_data_in;
-      8'h3C: EVOLR <= dsp_reg_data_in;
-      default: begin end
-    endcase
+// Write and reset for non-voice registers
+always @(posedge clock) begin
+  if(reset) begin
+	  MVOLL <= 8'b01111111;
+	  MVOLR <= 8'b01111111;
+  end else
+  if(dsp_reg_write_enable) begin
+	 casez (dsp_reg_address)
+		8'h0C: MVOLL <= dsp_reg_data_in;
+		8'h1C: MVOLR <= dsp_reg_data_in;
+		8'h2C: EVOLL <= dsp_reg_data_in;
+		8'h3C: EVOLR <= dsp_reg_data_in;
+		default: begin end
+	 endcase
   end
 end
 
@@ -173,7 +194,7 @@ DSPVoiceDecoder decoders [7:0] (
   .ram_read_request( decoder_write_requests ), /// !!!!!! TODO FIXME BROKEN
   .start_address( 16'b0 ),
   .loop_address( 16'b0 ),
-  .pitch( 14'd1024),
+  .pitch( decoder_pitch ),
   .current_output( decoder_output ),
   .reached_end( decoder_reached_end ),
   .advance_trigger( decoder_advance_trigger ),
@@ -181,27 +202,10 @@ DSPVoiceDecoder decoders [7:0] (
 
 //////////////////////////////////////////////
 
-// Per-voice Reset Logic
-generate
-for(gi=0; gi<N_VOICES; gi=gi+1) begin:per_voice_reset_logic
-always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-//        VxENVX[gi] <= 8'b01111111;
-//        VxVOLL[gi] <= 8'b01111111 / 4;
-//        VxVOLR[gi] <= 8'b01111111 / 4;
-//        MVOLL <= 8'b01111111;
-//        MVOLR <= 8'b01111111;
-    end
-  end
-end
-endgenerate
-
 // Clocked logic - Reset
 
 localparam VOICE_CYCLES = 12;
 localparam integer VOICE_RESUME [7:0] = '{ 26, 22, 18, 14, 10, 6, 2, 62 };
-
 
 // Combinatorial mixing logic
 // Combinatorial circuit continuously feeds into 'sample' which is latched into dac_out at M63
@@ -266,8 +270,8 @@ always @(posedge clock) begin
 	  case (major_step)
 
 		 6'd63: begin
-			dac_out_l <= decoder_output[0];//dac_sample_l[15:0];
-			dac_out_r <= decoder_output[0];//dac_sample_r[15:0];
+			dac_out_l <= dac_sample_l[15:0];
+			dac_out_r <= dac_sample_r[15:0];
 		 end
 		 default: begin end
 	  endcase

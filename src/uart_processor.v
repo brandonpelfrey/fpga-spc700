@@ -20,7 +20,12 @@ module uart_processor (
   output reg [15:0] ram_address,
   output reg [7:0]  ram_data_write,
   input  reg [7:0]  ram_data_read,
-  output reg        ram_we
+  output reg        ram_we,
+  
+	output reg [7:0] dsp_reg_address,
+	output reg [7:0] dsp_reg_data_in,
+	input      [7:0] dsp_reg_data_out,
+	output reg       dsp_reg_write_enable
 );
 
 parameter CLOCKS_PER_BIT = 40;
@@ -46,7 +51,10 @@ localparam STATE_REPLY_ERROR = 4;
 
 localparam CMD_AUDIO_RESET = 8'h01;
 localparam CMD_SET_RAM     = 8'h10;
-localparam CMD_APU_RESET   = 8'h22;
+
+localparam CMD_APU_RESET     = 8'h22;
+localparam CMD_DSP_SET_REG   = 8'h20;
+localparam CMD_DSP_GET_REGS  = 8'h21;
 
 always @(posedge clock) begin
 
@@ -65,6 +73,9 @@ always @(posedge clock) begin
 
     STATE_PROCESSING: begin
 		case(incoming_buffer[0][7:0])
+		
+		  ///////////////////////////////////////////////////
+		  
 		  CMD_APU_RESET: begin
 			 if(counter == 0) begin
 				apu_reset <= 1;
@@ -75,6 +86,8 @@ always @(posedge clock) begin
 				state <= STATE_REPLY_SUCCESS;
 		  end
 		  
+		  ///////////////////////////////////////////////////
+		  
 		  CMD_AUDIO_RESET: begin
 			 if(counter == 0) begin
 				audio_reset <= 1;
@@ -84,6 +97,8 @@ always @(posedge clock) begin
 			 else
 				state <= STATE_REPLY_SUCCESS;
 		  end
+		  
+		  ///////////////////////////////////////////////////
 		  
 		  CMD_SET_RAM: begin
 			// 0      : Command
@@ -128,6 +143,43 @@ always @(posedge clock) begin
 			end
 		  end
 		  
+		  ///////////////////////////////////////////////////
+		  
+		  CMD_DSP_SET_REG: begin
+			// #0 cmd, #1 address, #2 data
+			if(timeout_counter > CLOCKS_PER_BIT * 12 * 512) begin
+				state <= STATE_REPLY_ERROR;
+			end
+			else if(incoming_buffer_index < 3) begin
+				timeout_counter <= timeout_counter + 1;
+				if(in_uart_byte_ready) begin
+					incoming_buffer[incoming_buffer_index] <= in_uart_byte;
+					incoming_buffer_index <= incoming_buffer_index + 1;
+				end
+			end
+			else if(incoming_buffer_index == 3) begin
+				timeout_counter <= timeout_counter + 1;
+				incoming_buffer_index <= incoming_buffer_index + 1;
+				counter <= 0;
+				
+				// Store to DSP
+				dsp_reg_address      <= incoming_buffer[1];
+				dsp_reg_data_in      <= incoming_buffer[2];
+				dsp_reg_write_enable <= 1;
+			end
+			else begin
+				timeout_counter <= timeout_counter + 1;
+				if( counter == 12*40 ) begin
+					dsp_reg_write_enable <= 0;
+					state                <= STATE_REPLY_SUCCESS;
+				end
+				else
+					counter <= counter + 1;
+			end
+		  end
+		  
+		  ///////////////////////////////////////////////////
+		  
 		  default: begin
 			state <= STATE_REPLY_ERROR;
 		  end
@@ -155,7 +207,6 @@ always @(posedge clock) begin
 	   // Wait for any previous transmission to complete
 		out_uart_byte_ready <= 0;
 		out_uart_rx_reset   <= 0;
-//		out_uart_tx_reset   <= 1;
 	 
 		state       <= STATE_IDLE;
 		apu_reset   <= 1'b0;

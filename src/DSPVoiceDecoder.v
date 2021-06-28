@@ -53,7 +53,6 @@ reg signed [15:0] previous_samples [3:0];
 reg [7:0] header;
 wire header_end   = header[0];
 wire header_loop  = header[1];
-wire [1:0] filter = header[3:2];
 
 wire final_block_do_end  = header_end & (!header_loop);
 wire final_block_do_loop = header_end & header_loop;

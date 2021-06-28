@@ -156,8 +156,14 @@ module devboard(
 		.ram_address(ram_ctrl_address),
 		.ram_data_write(ram_ctrl_data_in),
 		.ram_data_read(ram_ctrl_data_out),
-		.ram_we(ram_ctrl_we)
+		.ram_we(ram_ctrl_we),
+		
+	   .dsp_reg_address(dsp_reg_address),
+	   .dsp_reg_data_in(dsp_reg_data_in),
+	   .dsp_reg_data_out(dsp_reg_data_out),
+	   .dsp_reg_write_enable(dsp_reg_write_enable)
 	);
+	defparam uart_processor_0.CLOCKS_PER_BIT = 40;
 	
 	//////////////////////////////////////////
 	
@@ -215,19 +221,18 @@ module devboard(
 	 .clock(clk_18_432_mhz)
   );
   
-  assign ram_apu_data_in[7:0] = 8'b0;
+	assign ram_apu_data_in[7:0] = 8'b0;
 	
 	/////////////////////////////////////////////////////////////
-	
+
 	wire apu_clock = AUD_BCLK;
 
-	
 	/////////////////////////////////////////////////////////////
 
 	// Soft CPU
 	wire [15:0]CPU_R0;
 	wire [15:0]CPU_MEM_ADDRESS;
-		
+
 	// Debug Outputs
 	//assign LEDG[0] = CLK_CPU;
 	assign LEDG[1] = pb1_debounced;
@@ -242,7 +247,7 @@ module devboard(
 	
 	wire [8*4 - 1:0] dsp_voice_states_out;
 	wire [2:0] decoder_state;
-	wire [15:0] dsp_reg_address;
+	wire [7:0] dsp_reg_address;
 	wire [7:0] dsp_reg_data_in;
 	wire [7:0] dsp_reg_data_out;
 	wire dsp_reg_write_enable;

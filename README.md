@@ -1,5 +1,7 @@
 # An FPGA Recreation of the Super Nintendo Audio System
 
+![DSP-diagram](https://user-images.githubusercontent.com/407441/134456362-4cbd2c5c-7f39-46d0-a7ea-fe449cd971e9.png)
+
 This project is a FPGA remake of the Super Nintendo audio system, written in Verilog. It runs on real hardware. We (the authors) are building this on a Cyclone V GX FPGA devboard.
 
 ## About the SNES Audio System

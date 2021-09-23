@@ -1,4 +1,4 @@
-# fpga-spc700
+# An FPGA Recreation of the Super Nintendo Audio System
 
 This project is a FPGA remake of the Super Nintendo audio system, written in Verilog. It runs on real hardware. We (the authors) are building this on a Cyclone V GX FPGA devboard.
 

@@ -53,6 +53,9 @@ python3 driver.py --reset-apu
 python driver.py --load-sample [sample_path]
 ```
 
+### Example Audio Capture of Chrono Trigger Samples from Hardware
+https://user-images.githubusercontent.com/407441/134551019-76dbdc05-2b9e-45eb-99f6-883c106bd3a3.mp4
+
 ### DSP TODO
 - Noise Generator
 - Master Volume

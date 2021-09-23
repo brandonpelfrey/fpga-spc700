@@ -1,6 +1,14 @@
 
 # DSP Timing diagram
 
+The DSP is hardware, and it has a single port to talk to RAM. In 64 cycles, it must produce a Left/Right 16-bit audio sample. Because there are 8 voices and no two voices may access RAM at once, I've opted to 'schedule' RAM accesses as indicated in the table below. Rows labeled 'Vx' indicate operations happening for that voice. Time proceeds to the right, and this entire process loops forever (even if the CPU is frozen). 
+
+A single voice of the DSP is initially in an "Init" state which is waiting for a pulse on "advance_trigger" from the DSP itself. At that point there are three clock cycles allocated to read a header byte and two BRR sample data bytes. Note, not all of these reads may actually happen, but this is the worst case scenario with maximum pitch (+2 octaves). After those reads, there are four processing cycles for each voice (indicated 'P' in the diagram below). Notice that sample processing for a single voice decoder proceeds in parallel while data accesses begin on the next voice.
+
+Note there are also some 'global' operations like reading/writing to the echo buffer, which is independent of any voice. At the end of the timeline, the output sample is ready to be consumed by the audio DAC.
+
+TODO : This graphic is mostly complete, however some operations here are missing. Notably, reading the sample directory data which indicates the start/loop position that each voice should currently be playing is not present in the timeline (or the Verilog) at the time of this writing. 
+
               1         2         3         4         5         6
 t | 0123456789012345678901234567890123456789012345678901234567890123|
 V0: HDDPPPP........................................................i|

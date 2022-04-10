@@ -4,6 +4,7 @@
 
 #include "BasicBench.h"
 #include "VDSPVoiceDecoder.h"
+#include "VDSPVoiceDecoder_DSPVoiceDecoder.h"
 #include "types.h"
 #include "wave.h"
 
@@ -50,7 +51,7 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
   ram.load(brr_path);
 
   const auto voice = bench.get();
-  voice->pitch = 3000;
+  voice->pitch = 4095 / 4;
   voice->start_address = 0;
   // TODO: Loop point is not properly set, so loop will happen at the beginning
 
@@ -58,14 +59,14 @@ void dsp_test_wave_out(DSPVoiceBench &bench, const char *brr_path)
   WaveRecorder recorder;
 
   unsigned samples = 0;
-  for (int i = 0; i < 200000 && samples < 32000; ++i)
+  for (int i = 0; i < 500000 && samples < 32000 * 5; ++i)
   {
     const int read_requested = voice->ram_read_request & 1;
     const int state = voice->state;
     const s16 output = voice->current_output;
     const unsigned cursor = voice->cursor;
-    const unsigned block_index = voice->DSPVoiceDecoder__DOT__block_index;
-    printf("[%06u] state:%8s read:%d cursor:%8u block_index:%u output:%d\n", i, STATE_NAMES[state], read_requested, cursor, block_index, output);
+    const unsigned block_index = voice->DSPVoiceDecoder->block_index;
+    // printf("[%06u] state:%8s read:%d cursor:%8u block_index:%u output:%d\n", i, STATE_NAMES[state], read_requested, cursor, block_index, output);
 
     if (voice->state == 5)
       break;

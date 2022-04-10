@@ -1,15 +1,18 @@
 {
   "C_Cpp.default.includePath": [
+    "${workspaceRoot}/build/build-CPUBench/",
     "${workspaceRoot}/build/build-TestDSP/",
     "${workspaceRoot}/build/build-DSP/",
     "${workspaceRoot}/build/build-DSPVoiceDecoder/",
     "${workspaceRoot}/build/build-uart_tx/",
     // "./build/build-uart_tx/",
     "/opt/homebrew/Cellar/verilator/4.200/share/verilator/include",
-    "/usr/share/verilator/include"
+    "/usr/share/verilator/include",
+    "C:/msys/mingw64/share/verilator/include"
   ],
   "files.associations": {
     "cstdint": "cpp"
   },
   "python.pythonPath": "/usr/bin/python3",
+  "files.insertFinalNewline": true,
 }

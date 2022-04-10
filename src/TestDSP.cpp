@@ -4,6 +4,8 @@
 
 #include "BasicBench.h"
 #include "VTestDSP.h"
+#include "VTestDSP_DSP.h"
+#include "VTestDSP_TestDSP.h"
 #include "types.h"
 #include "wave.h"
 
@@ -109,7 +111,7 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
         // printf("%6u ", pitch);
       }
       {
-        const unsigned current_voice = bench->TestDSP__DOT__dsp__DOT__current_voice;
+        const unsigned current_voice = bench->TestDSP->dsp->current_voice;
         const unsigned ram_address = bench->ram_address;
         printf("current_voice %u ram_addr 0x%0X", current_voice, ram_address);
       }

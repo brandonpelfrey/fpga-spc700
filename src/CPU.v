@@ -26,9 +26,9 @@ module CPU(
 	/*
 	 * Data: CPU Registers
 	 */
-	reg [7:0] R [3:0]; /* Register File */
-	reg [15:0] PC;     /* Program Counter */
-	reg [7:0] PSW;     /* Status register */
+	reg [7:0] R [3:0] /* verilator public */; /* Register File */
+	reg [15:0] PC /* verilator public */;     /* Program Counter */
+	reg [7:0] PSW /* verilator public */;     /* Status register */
 
 	/*
 	 * For the status register, these are the individual flag positions.

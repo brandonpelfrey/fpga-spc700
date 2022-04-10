@@ -8,7 +8,7 @@ module TestRAM(address, data_in, data_out, clock, write_enable);
 	input clock;
 	input write_enable;
 
-	reg [7:0] memory [65535:0];
+	reg [7:0] memory [65535:0] /* verilator public */;
 
 	integer i;
 

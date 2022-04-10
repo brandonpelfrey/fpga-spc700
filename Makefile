@@ -1,15 +1,18 @@
 MODULES := $(patsubst src/%.v,%,$(wildcard src/*.v))
 BENCHES := $(patsubst src/%.cpp,%,$(wildcard src/*.cpp))
 
+CXXFLAGS := -Ibuild/
+
 ifeq ($(shell uname -s),Linux)
 VERILATOR_INC := /usr/share/verilator/include
 else
-VERILATOR_INC := /opt/homebrew/Cellar/verilator/4.200/share/verilator/include
+# VERILATOR_INC := /opt/homebrew/Cellar/verilator/4.200/share/verilator/include
+VERILATOR_INC := /c/msys/mingw64/share/verilator/include/
+CXXFLAGS += -I/c/msys/mingw64/share/verilator/include/vltstd/
 endif
 
-CXXFLAGS := -Ibuild/
 CXXFLAGS += -std=c++17
-CXXFLAGS += -I$(VERILATOR_INC)
+CXXFLAGS += -I$(VERILATOR_INC) -Wno-attributes -O3
 VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED
 
 .PHONY: all all-verilate all-test clean

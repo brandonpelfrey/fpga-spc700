@@ -1,12 +1,13 @@
 #pragma once
 
+#include <functional>
 #include <cstdint>
 
 class Assembler
 {
 public:
-	Assembler(uint8_t *const memory)
-		: m_memory(memory), m_address(0)
+	Assembler(std::function<void(uint16_t, uint8_t)> write_func)
+			: m_write_func(write_func), m_address(0)
 	{
 		return;
 	}
@@ -166,11 +167,12 @@ public:
 	}
 
 private:
-	uint8_t *const m_memory;
+	std::function<void(uint16_t, uint8_t)> m_write_func;
 	uint16_t m_address;
 
 	void write(const uint8_t byte)
 	{
-		m_memory[m_address++] = byte;
+		m_write_func(m_address, byte);
+		m_address++;
 	}
 };

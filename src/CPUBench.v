@@ -42,7 +42,7 @@ module CPUBench(
 		.out_ram_write_enable(ram_write_enable),
 		.out_halted(out_halted));
 
-	TestRAM ram(
+	TestRAM ram (
 		.address(ram_address),
 		.data_in(ram_write),
 		.data_out(ram_read),

@@ -73,7 +73,7 @@ reg signed [15:0] read_buffer   [7:0];
 reg        [1:0]  filter_buffer [7:0];
 
 reg [2:0] read_buffer_index;
-reg [3:0] block_index;
+reg [3:0] block_index /* verilator public */;
 reg signed [15:0] previous_samples [3:0];
 
 // Headers for current bytes being decoded

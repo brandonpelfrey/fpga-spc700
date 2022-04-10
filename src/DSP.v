@@ -237,7 +237,7 @@ always @* begin
   dac_sample_r = (dac_sample_r * $signed(MVOLR)) >>> 7;
 end
 
-reg [2:0] current_voice;
+reg [2:0] current_voice /* verilator public */;
 assign ram_address = decoder_ram_address[current_voice];
 
 always @(posedge clock) begin

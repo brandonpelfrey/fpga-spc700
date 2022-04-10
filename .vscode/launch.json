@@ -1,0 +1,16 @@
+{
+  "configurations": [
+    {
+      "name": "GUI",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/gui.exe",
+      "externalConsole": false,
+      "logging": {
+        "moduleLoad": false,
+        "trace": true
+      },
+      "showDisplayString": true
+    }
+  ]
+}

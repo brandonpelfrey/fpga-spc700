@@ -1,3 +1,8 @@
+
+# You should define...
+# GUI_LIBS - linker flags for SDL2 and OpenGL3
+-include common.mk
+
 MODULES := $(patsubst src/%.v,%,$(wildcard src/*.v))
 BENCHES := $(patsubst src/%.cpp,%,$(wildcard src/*.cpp))
 
@@ -12,8 +17,8 @@ CXXFLAGS += -I/c/msys/mingw64/share/verilator/include/vltstd/
 endif
 
 CXXFLAGS += -std=c++17
-CXXFLAGS += -I$(VERILATOR_INC) -Wno-attributes -O3
-VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED
+CXXFLAGS += -I$(VERILATOR_INC) -Wno-attributes -Ofast
+VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED -Ofast
 
 .PHONY: all all-verilate all-test clean
 all: all-verilate all-test
@@ -32,7 +37,7 @@ build/libverilated.a : $(VERILATOR_INC)/verilated.cpp
 define GEN_verilator
 build/build-$(1)/V$(1).cpp: $(wildcard src/*.v)
 	mkdir -p build/build-$(1)
-	verilator $(VERILATOR_FLAGS) -Isrc -Mdir build/build-$(1) -O3 --top-module $(1) --exe src/$(1).v
+	verilator $(VERILATOR_FLAGS) -Isrc -Mdir build/build-$(1) --top-module $(1) --exe src/$(1).v
 	touch $$@
 
 build/lib$(1).a: build/build-$(1)/V$(1).cpp
@@ -57,6 +62,23 @@ endef
 
 $(foreach what,$(BENCHES),$(eval $(call GEN_verilator,$(what))))
 $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
+
+################################################################################
+# Controller GUI
+################################################################################
+
+IMGUI_FLAGS := -Igui/imgui -Igui/imgui/backends
+
+gui: $(wildcard src/*.h) gui/gui.cpp build/libTestDSP.a
+	$(CXX) $(CXXFLAGS) $(IMGUI_FLAGS) \
+		-Isrc -Ibuild/build-TestDSP \
+		gui/gui.cpp gui/verilator_controller.cpp \
+		gui/imgui/imgui*.cpp \
+		gui/imgui/backends/imgui_impl_sdl.cpp \
+		gui/imgui/backends/imgui_impl_opengl3.cpp \
+		-Lbuild \
+		$(GUI_LIBS) -lTestDSP -lverilated \
+		-o build/gui
 
 ################################################################################
 # Build Rules (Ice40)

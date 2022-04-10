@@ -9,7 +9,7 @@
 #include "types.h"
 #include "wave.h"
 
-const unsigned DSP_CYCLES_PER_SAMPLE = 96;
+const unsigned DSP_CYCLES_PER_SAMPLE = 64;
 const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
 double global_time = 0;
 
@@ -86,7 +86,7 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
 
   bench->dsp_reg_write_enable = 0;
 
-  for (int i = 0; i < 64 * 32000 * 3; ++i)
+  for (int i = 0; i < DSP_CYCLES_PER_SAMPLE * 32000 * 5; ++i)
   {
     const unsigned major_step = bench->major_step;
 
@@ -95,10 +95,10 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
     {
       if (major_step == 0)
       {
-        printf("-------------------------------------\n");
-        printf("                      0 1 2 3 4 5 6 7 G\n");
+        // printf("-------------------------------------\n");
+        // printf("                      0 1 2 3 4 5 6 7 G\n");
       }
-      printf("[%08u] : major %2u ", i, major_step);
+      // printf("[%08u] : major %2u ", i, major_step);
       for (int v = 0; v < 8; v++)
       {
         const unsigned voice_state = (bench->voice_states_out >> (v * 4)) & 0b1111;
@@ -113,14 +113,14 @@ void dsp_test_wave_out(SPCDSPBench &bench, const char *brr_file_path)
       {
         const unsigned current_voice = bench->TestDSP->dsp->current_voice;
         const unsigned ram_address = bench->ram_address;
-        printf("current_voice %u ram_addr 0x%0X", current_voice, ram_address);
+        // printf("current_voice %u ram_addr 0x%0X", current_voice, ram_address);
       }
-      printf("\n");
+      // printf("\n");
     }
 
-    if (major_step == 63)
+    if (major_step == DSP_CYCLES_PER_SAMPLE-1)
     {
-      printf("%d\n", *(s16*)&bench->dac_out_l);
+      // printf("%d\n", *(s16*)&bench->dac_out_l);
       recorder.push(bench->dac_out_l, bench->dac_out_r);
     }
 

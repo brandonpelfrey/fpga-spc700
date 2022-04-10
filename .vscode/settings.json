@@ -5,6 +5,8 @@
     "${workspaceRoot}/build/build-DSP/",
     "${workspaceRoot}/build/build-DSPVoiceDecoder/",
     "${workspaceRoot}/build/build-uart_tx/",
+    "${workspaceRoot}/gui/imgui/**",
+    "${workspaceRoot}/src/",
     // "./build/build-uart_tx/",
     "/opt/homebrew/Cellar/verilator/4.200/share/verilator/include",
     "/usr/share/verilator/include",

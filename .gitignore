@@ -7,3 +7,5 @@ cyclone-v-gx/db/
 cyclone-v-gx/devboard.sdc.bak
 cyclone-v-gx/incremental_db/
 cyclone-v-gx/output_files/
+common.mk
+imgui.ini

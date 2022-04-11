@@ -68,6 +68,7 @@ void draw_gui()
   ImGui::Text("DSP Voice States");
   for (u8 i = 0; i < DSPState::num_voices; ++i)
   {
+    ImGui::Text("-- Voice %u", i);
     static const char *voice_fsm_state_names[] = {
         "Init",
         "ReadHeader",
@@ -76,7 +77,30 @@ void draw_gui()
         "OutputAndWait",
         "End",
     };
-    ImGui::Text("- Voice %u: %s ", i, voice_fsm_state_names[g_dsp_state.voice[i].fsm_state]);
+    ImGui::Text("  Decoder State: %s ", voice_fsm_state_names[g_dsp_state.voice[i].fsm_state]);
+
+    ImGui::PushID(i);
+    static float speed[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    if (ImGui::SliderFloat("Speed", &speed[i], 0.01, 3.999, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+    {
+      u16 P = (u16)(1024 * speed[i]);
+
+      u8 p_lo_reg = (i << 4) | 2;
+      u8 p_hi_reg = (i << 4) | 3;
+      controller->setDSPRegister(p_lo_reg, P & 0xFF);
+      controller->setDSPRegister(p_hi_reg, (P >> 8) & 0x3F);
+    }
+
+    static float volume[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    if (ImGui::SliderFloat("Volume", &volume[i], 0.0, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+    {
+      // Left volume, 0xEF max
+      controller->setDSPRegister((i << 4) | 0, (u8)(volume[i] * 0xEF));
+      // Right volume, 0xEF max
+      controller->setDSPRegister((i << 4) | 1, (u8)(volume[i] * 0xEF));
+    }
+
+    ImGui::PopID();
   }
   ImGui::End();
 }
@@ -216,7 +240,7 @@ int main(int, char **)
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    // ImGui::ShowDemoWindow(&show_demo_window);
+    ImGui::ShowDemoWindow(&show_demo_window);
     update_state();
     draw_gui();
 

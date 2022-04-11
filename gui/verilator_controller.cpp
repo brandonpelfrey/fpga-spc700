@@ -50,7 +50,15 @@ bool VerilatorController::getMemoryState(MemoryState *) { return true; }
 
 // Set State
 bool VerilatorController::setCPURegister(uint8_t registerIndex, uint8_t value) { return true; }
-bool VerilatorController::setDSPRegister(uint8_t registerIndex, uint8_t value) { return true; }
+
+bool VerilatorController::setDSPRegister(uint8_t registerIndex, uint8_t value)
+{
+  std::lock_guard lock(m_user_command_mutex);
+  UserCommand new_command = Command_SetDSPRegValue{registerIndex, value};
+  m_user_commands.push_back(new_command);
+  return true;
+}
+
 bool VerilatorController::setMemorySpan(uint16_t addressOffset, uint32_t range, uint8_t *data)
 {
   assert(addressOffset < 64 * 1024);
@@ -109,6 +117,25 @@ void VerilatorController::sim_thread_func()
   auto &top = *m_dsp_bench->get();
   while (!m_quit)
   {
+    // Run any commands requested. Note that setting registers etc involves clocking the design!
+    if (!m_user_commands.empty())
+    {
+      std::lock_guard lock(m_user_command_mutex);
+      for (const auto &cmd_variant : m_user_commands)
+      {
+        if (std::holds_alternative<Command_SetDSPRegValue>(cmd_variant))
+        {
+          const Command_SetDSPRegValue &cmd = std::get<Command_SetDSPRegValue>(cmd_variant);
+          top.dsp_reg_address = cmd.dsp_reg;
+          top.dsp_reg_data_in = cmd.reg_value;
+          top.dsp_reg_write_enable = 1;
+          m_dsp_bench->tick();
+          top.dsp_reg_write_enable = 0;
+        }
+      }
+      m_user_commands.clear();
+    }
+
     // If we're buffering audio to the host, but the host hasn't consumed enough, we'll wait.
     if (m_audio_queue)
     {

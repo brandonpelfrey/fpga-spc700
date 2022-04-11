@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <thread>
+#include <variant>
 
 class RAM
 {
@@ -70,4 +71,13 @@ private:
   std::shared_ptr<BasicBench<VTestDSP>> m_dsp_bench;
   RAM m_ram;
   AudioQueue *m_audio_queue = nullptr;
+
+  struct Command_SetDSPRegValue{
+    u8 dsp_reg;
+    u8 reg_value;
+  };
+
+  using UserCommand = std::variant<Command_SetDSPRegValue>;
+  std::vector<UserCommand> m_user_commands;
+  std::mutex m_user_command_mutex;
 };

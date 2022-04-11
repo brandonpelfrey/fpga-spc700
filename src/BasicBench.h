@@ -70,6 +70,8 @@ public:
     return m_module;
   }
 
+  uint64_t get_tick_count() const { return m_tick; }
+
 private:
   uint64_t m_tick;
   Module *const m_module;

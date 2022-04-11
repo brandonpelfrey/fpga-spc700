@@ -8,8 +8,6 @@
 #include "types.h"
 #include "wave.h"
 
-const unsigned DSP_CYCLES_PER_SAMPLE = 96;
-const unsigned DSP_CYCLES_PER_SEC = DSP_AUDIO_RATE * DSP_CYCLES_PER_SAMPLE;
 double global_time = 0;
 
 class RAM

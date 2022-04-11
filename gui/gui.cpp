@@ -14,14 +14,87 @@
 #include <SDL_opengl.h>
 #endif
 
-#include "verilator_controller.h"
-VerilatorController *verilatorController;
+#include <queue>
+#include <thread>
 
-void drawGUI()
+#include "im_file_picker.h"
+
+#include "verilator_controller.h"
+Controller *controller;
+
+CPUState g_cpu_state;
+DSPState g_dsp_state;
+MemoryState g_memory_state;
+AudioQueue *g_audio_queue;
+
+void update_state()
 {
-  ImGui::Begin("Controller");
-  ImGui::Text("Simulator Cycles: %lu", verilatorController->getCycleCount());
+  controller->getCPUState(&g_cpu_state);
+  controller->getDSPState(&g_dsp_state);
+  controller->getMemoryState(&g_memory_state);
+}
+
+void draw_gui()
+{
+  {
+    ImGui::Begin("Global State");
+    ImGui::Text("Simulator Cycles: %lu", controller->getCycleCount());
+
+    if (ImGui::Button("Step"))
+      controller->singleStep();
+    ImGui::SameLine();
+    if (ImGui::Button("Resume"))
+      controller->resume();
+    ImGui::SameLine();
+    if (ImGui::Button("Stop"))
+      controller->stop();
+    ImGui::SameLine();
+    if (ImGui::Button("Reset"))
+      controller->reset();
+
+    static ImFilePicker ram_file_picker(".");
+    ram_file_picker.on_file_open = [&](const char *file_path)
+    {
+      controller->loadMemoryFromFile(file_path);
+    };
+    ImGui::Separator();
+    ram_file_picker.draw();
+
+    ImGui::End();
+  }
+
+  ImGui::Begin("DSP Internals");
+  ImGui::Text("Major State: %u (0..63)", g_dsp_state.major_cycle);
+  ImGui::Text("DSP Voice States");
+  for (u8 i = 0; i < DSPState::num_voices; ++i)
+  {
+    static const char *voice_fsm_state_names[] = {
+        "Init",
+        "ReadHeader",
+        "ReadData",
+        "ProcessSample",
+        "OutputAndWait",
+        "End",
+    };
+    ImGui::Text("- Voice %u: %s ", i, voice_fsm_state_names[g_dsp_state.voice[i].fsm_state]);
+  }
   ImGui::End();
+}
+
+// https://wiki.libsdl.org/SDL_AudioSpec#callback
+void sdl_audio_callback(void *userdata, uint8_t *out_data, int length)
+{
+  const u32 available = g_audio_queue->availableFrames();
+  if (!g_audio_queue || available < 4096)
+  {
+    printf("Audio underrun\n");
+    fflush(stdout);
+    memset(out_data, 0, length);
+    return;
+  }
+
+  g_audio_queue->consumeFrames((int16_t *)out_data, 4096);
+  fflush(stdout);
 }
 
 // Main code
@@ -30,7 +103,7 @@ int main(int, char **)
   // Setup SDL
   // (Some versions of SDL before <2.0.10 appears to have performance/stalling issues on a minority of Windows systems,
   // depending on whether SDL_INIT_GAMECONTROLLER is enabled or disabled.. updating to latest version of SDL is recommended!)
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
   {
     printf("Error: %s\n", SDL_GetError());
     return -1;
@@ -86,27 +159,38 @@ int main(int, char **)
   ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
   ImGui_ImplOpenGL3_Init(glsl_version);
 
-  // Load Fonts
-  // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-  // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-  // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-  // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-  // - Read 'docs/FONTS.md' for more instructions and details.
-  // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-  // io.Fonts->AddFontDefault();
-  // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-  // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-  // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-  // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-  // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-  // IM_ASSERT(font != NULL);
+  // Audio Init
+  SDL_AudioDeviceID sdl_audio_dev;
+  {
+    SDL_AudioSpec desired = {};
+    desired.channels = 2;
+    desired.format = AUDIO_S16;
+    desired.callback = sdl_audio_callback;
+    desired.freq = 32000;
+    desired.samples = 4096; // Buffer size in samples, must be PoT
+
+    SDL_AudioSpec obtained;
+    if (0 == (sdl_audio_dev = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, 0)))
+    {
+      printf("Failed to initialize audio: %s\n", SDL_GetError());
+      return 1;
+    }
+    else
+    {
+      printf("Obtained audio: chan=%u sample_rate=%u format=0x%x\n", obtained.channels, obtained.freq, obtained.format);
+      SDL_PauseAudioDevice(sdl_audio_dev, 0); // unpause
+    }
+  }
 
   // Our state
   bool show_demo_window = true;
   bool show_another_window = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-  verilatorController = new VerilatorController();
+  g_audio_queue = new AudioQueue();
+
+  controller = new VerilatorController();
+  controller->setAudioQueue(g_audio_queue);
 
   // Main loop
   bool done = false;
@@ -133,7 +217,8 @@ int main(int, char **)
     ImGui::NewFrame();
 
     // ImGui::ShowDemoWindow(&show_demo_window);
-    drawGUI();
+    update_state();
+    draw_gui();
 
     // Rendering
     ImGui::Render();

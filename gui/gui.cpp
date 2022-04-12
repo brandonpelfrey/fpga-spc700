@@ -55,7 +55,10 @@ void draw_gui()
     static ImFilePicker ram_file_picker(".");
     ram_file_picker.on_file_open = [&](const char *file_path)
     {
-      controller->loadMemoryFromFile(file_path);
+      if (strstr(file_path, ".spc"))
+        controller->loadSPCFromFile(file_path);
+      else
+        controller->loadMemoryFromFile(file_path);
     };
     ImGui::Separator();
     ram_file_picker.draw();
@@ -66,6 +69,9 @@ void draw_gui()
   ImGui::Begin("DSP Internals");
   ImGui::Text("Major State: %u (0..63)", g_dsp_state.major_cycle);
   ImGui::Text("DSP Voice States");
+
+  float speed[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+  float volume[8] = {1, 1, 1, 1, 1, 1, 1, 1};
   for (u8 i = 0; i < DSPState::num_voices; ++i)
   {
     ImGui::Text("-- Voice %u", i);
@@ -80,27 +86,43 @@ void draw_gui()
     ImGui::Text("  Decoder State: %s ", voice_fsm_state_names[g_dsp_state.voice[i].fsm_state]);
 
     ImGui::PushID(i);
-    static float speed[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-    if (ImGui::SliderFloat("Speed", &speed[i], 0.01, 3.999, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+
+    const u8 p_lo_reg = (i << 4) | 2;
+    const u8 p_hi_reg = (i << 4) | 3;
+    speed[i] = (float)(g_dsp_state.register_values[p_hi_reg] * 256 + g_dsp_state.register_values[p_lo_reg]) / 1024.f;
+    if (ImGui::SliderFloat("Speed", &speed[i], 0.00, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
     {
       u16 P = (u16)(1024 * speed[i]);
-
-      u8 p_lo_reg = (i << 4) | 2;
-      u8 p_hi_reg = (i << 4) | 3;
       controller->setDSPRegister(p_lo_reg, P & 0xFF);
       controller->setDSPRegister(p_hi_reg, (P >> 8) & 0x3F);
     }
 
-    static float volume[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    // TODO : Volume can actually be -1 -> 1
+    // TODO : Idenepdent left/right control
+    volume[i] = (float)g_dsp_state.register_values[(i << 4) | 0] / 0x7F;
     if (ImGui::SliderFloat("Volume", &volume[i], 0.0, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
     {
-      // Left volume, 0xEF max
-      controller->setDSPRegister((i << 4) | 0, (u8)(volume[i] * 0xEF));
-      // Right volume, 0xEF max
-      controller->setDSPRegister((i << 4) | 1, (u8)(volume[i] * 0xEF));
+      controller->setDSPRegister((i << 4) | 0, (u8)(volume[i] * 0x7F)); // Left volume, 0x7F max
+      controller->setDSPRegister((i << 4) | 1, (u8)(volume[i] * 0x7F)); // Right volume, 0x7F max
     }
 
+    ImGui::Text("Decoder Cursor : %u", g_dsp_state.voice[i].decoder_cursor);
+    ImGui::Text("Decoder Address: 0x%04x", g_dsp_state.voice[i].decoder_address);
+    ImGui::Text("Decoder Output : %d", g_dsp_state.voice[i].decoder_output);
+
     ImGui::PopID();
+  }
+  ImGui::End();
+
+  ImGui::Begin("DSP Registers");
+  for (u8 i = 0; i < 128; ++i)
+  {
+    const char *name = getDSPRegisterName(i);
+    if (!name)
+      continue;
+    ImGui::Text("0x%02x: 0x%02x :: %s", i, g_dsp_state.register_values[i], name);
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("%s", getDSPRegisterDescription(i));
   }
   ImGui::End();
 }
@@ -172,6 +194,7 @@ int main(int, char **)
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 

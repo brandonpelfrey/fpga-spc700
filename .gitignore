@@ -9,3 +9,4 @@ cyclone-v-gx/incremental_db/
 cyclone-v-gx/output_files/
 common.mk
 imgui.ini
+cmake-build/

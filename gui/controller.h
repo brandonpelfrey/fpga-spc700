@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio_queue.h"
 #include "types.h"
 
 #include <algorithm>
@@ -17,6 +18,23 @@ struct MemoryState
 {
   static constexpr uint32_t shared_memory_size = 64 * 1024;
   std::array<uint8_t, shared_memory_size> shared_memory;
+};
+
+enum CPURegisterIndexes
+{
+  CPURegisterIndex_A = 0,
+  CPURegisterIndex_PCHigh,
+  CPURegisterIndex_PCLow,
+  CPURegisterIndex_X,
+  CPURegisterIndex_Y,
+  CPURegisterIndex_PSW,
+  CPURegisterIndex_SP,
+};
+
+enum DSPRegisters {
+  #define DSP_REGISTER(index, voice, name, description) DSPRegister_##name = index,
+  #include "dsp_registers.h"
+  #undef DSP_REGISTER
 };
 
 struct CPUState
@@ -43,71 +61,22 @@ struct DSPState
   struct DSPVoiceState
   {
     DSPVoiceFSMState fsm_state;
+    u16 decoder_address;
+    u16 decoder_cursor;
+    s16 decoder_output;
   };
 
+  u8 register_values[128];
   DSPVoiceState voice[8];
   u16 ram_address;
   u8 ram_data;
   u32 major_cycle;
 };
 
-class AudioQueue
-{
-public:
-  static constexpr u32 SampleCount = (4096 * 4) * 2;
-  using SampleType = s16;
 
-  // head = no data, but would be the next location
-  // tail = points to oldest data
-  // if head==tail, empty
 
-  AudioQueue()
-  {
-    sample_data.resize(SampleCount);
-  }
-
-  bool isFull() const
-  {
-    const u32 current_entries = head - tail;
-    return current_entries >= SampleCount;
-  }
-
-  bool isEmpty() const { return head == tail; }
-
-  void push(SampleType left, SampleType right)
-  {
-    assert(!isFull());
-    sample_data[head % SampleCount] = left;
-    head++;
-    sample_data[head % SampleCount] = right;
-    head++;
-  }
-
-  u32 availableFrames() const { return (head - tail) / 2; }
-
-  void consumeFrames(SampleType *dst, u32 num_frames)
-  {
-    assert(availableFrames() >= num_frames);
-    // TODO : 1 or 2 memcpys
-    for (u32 i = 0; i < 2*num_frames; ++i)
-      *dst++ = sample_data[(tail + i) % SampleCount]; // i even=left, odd=right
-
-    tail += num_frames * 2;
-
-    // Adjust head/tail to avoid wrapping since they both keep growing with push/consume calls.
-    // This is stupid, but works. Could change the size calculations instead
-    if (tail > SampleCount && head > SampleCount)
-    {
-      tail -= SampleCount;
-      head -= SampleCount;
-    }
-  }
-
-private:
-  std::vector<SampleType> sample_data;
-  std::atomic<u32> head = {};
-  std::atomic<u32> tail = {};
-};
+const char *getDSPRegisterName(u8 register_index);
+const char *getDSPRegisterDescription(u8 register_index);
 
 class Controller
 {
@@ -139,6 +108,8 @@ public:
     const u32 size = std::min((u32)(64 * 1024), file_size);
     setMemorySpan(0, size, &data[0]);
   }
+
+  void loadSPCFromFile(const char *file_path);
 
   // Hardware control
   virtual void singleStep() = 0;

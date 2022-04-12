@@ -11,6 +11,13 @@ module TestDSP(
 
   output [8*4-1:0] voice_states_out,
 
+`ifdef DEBUG_DSP
+  output [7:0] __debug_out_regs [127:0],
+  output [15:0] __debug_voice_cursors [7:0],
+  output signed [15:0] __debug_voice_output [7:0],
+  output [15:0] __debug_voice_ram_address [7:0],
+`endif
+
   output [15:0] ram_address,
   input [7:0] ram_data,
   output [5:0] major_step
@@ -36,6 +43,13 @@ DSP dsp(
   .dsp_reg_data_in(dsp_reg_data_in),
   .dsp_reg_data_out(dsp_reg_data_out),
   .dsp_reg_write_enable(dsp_reg_write_enable),
+
+`ifdef DEBUG_DSP
+  .__debug_out_regs(__debug_out_regs),
+  .__debug_voice_cursors(__debug_voice_cursors),
+  .__debug_voice_output(__debug_voice_output),
+  .__debug_voice_ram_address(__debug_voice_ram_address),
+`endif
 
   .clock(clock),
   .reset(reset),

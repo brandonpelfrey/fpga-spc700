@@ -35,6 +35,13 @@ module DSP (
   dsp_reg_data_out,
   dsp_reg_write_enable,
 
+  `ifdef DEBUG_DSP
+    __debug_out_regs,
+    __debug_voice_cursors,
+    __debug_voice_output,
+    __debug_voice_ram_address,
+  `endif
+
   clock,
   reset,
   dac_out_l,
@@ -65,39 +72,56 @@ parameter N_VOICES = 8;
 parameter N_MAJOR_STEPS = 64;
 output reg [5:0] major_step;
 
+// 128 registers.
+localparam [6:0] REG_VOLL   [7:0] = '{7'h00,7'h10,7'h20,7'h30,7'h40,7'h50,7'h60,7'h70};
+localparam [6:0] REG_VOLR   [7:0] = '{7'h01,7'h11,7'h21,7'h31,7'h41,7'h51,7'h61,7'h71};
+localparam [6:0] REG_PL     [7:0] = '{7'h02,7'h12,7'h22,7'h32,7'h42,7'h52,7'h62,7'h72};
+localparam [6:0] REG_PH     [7:0] = '{7'h03,7'h13,7'h23,7'h33,7'h43,7'h53,7'h63,7'h73};
+localparam [6:0] REG_SRCN   [7:0] = '{7'h04,7'h14,7'h24,7'h34,7'h44,7'h54,7'h64,7'h74};
+localparam [6:0] REG_ADSR1  [7:0] = '{7'h05,7'h15,7'h25,7'h35,7'h45,7'h55,7'h65,7'h75};
+localparam [6:0] REG_ADSR2  [7:0] = '{7'h06,7'h16,7'h26,7'h36,7'h46,7'h56,7'h66,7'h76};
+localparam [6:0] REG_GAIN   [7:0] = '{7'h07,7'h17,7'h27,7'h37,7'h47,7'h57,7'h67,7'h77};
+localparam [6:0] REG_ENVX   [7:0] = '{7'h08,7'h18,7'h28,7'h38,7'h48,7'h58,7'h68,7'h78};
+localparam [6:0] REG_OUTX   [7:0] = '{7'h09,7'h19,7'h29,7'h39,7'h49,7'h59,7'h69,7'h79};
+localparam [6:0] REG_MVOLL  = 7'h0c;
+localparam [6:0] REG_EFB    = 7'h0d;
+localparam [6:0] REG_COEF   [7:0] = '{7'h0f,7'h1f,7'h2f,7'h3f,7'h4f,7'h5f,7'h6f,7'h7f};
+localparam [6:0] REG_MVOLR  = 7'h1c;
+localparam [6:0] REG_EVOLL  = 7'h2c;
+localparam [6:0] REG_PMON   = 7'h2d;
+localparam [6:0] REG_EVOLR  = 7'h3c;
+localparam [6:0] REG_NON    = 7'h3d;
+localparam [6:0] REG_KON    = 7'h4c;
+localparam [6:0] REG_EON    = 7'h4d;
+localparam [6:0] REG_KOF    = 7'h5c;
+localparam [6:0] REG_DIR    = 7'h5d;
+localparam [6:0] REG_FLG    = 7'h6c;
+localparam [6:0] REG_ESA    = 7'h6d;
+localparam [6:0] REG_ENDX   = 7'h7c;
+localparam [6:0] REG_EDL    = 7'h7d;
+
+`ifdef DEBUG_DSP
+output [7:0] __debug_out_regs [127:0];
+output [15:0] __debug_voice_cursors [7:0];
+output signed [15:0] __debug_voice_output [7:0];
+output [15:0] __debug_voice_ram_address [7:0];
+`endif
+
 ///////////////////////////////////////////////////////////////////////////////
 // DSP Registers
 
-reg [7:0] VxVOLL  [N_VOICES-1:0];    // $x0 VxVOLL - Left volume for Voice x
-reg [7:0] VxVOLR  [N_VOICES-1:0];    // $x1 VxVOLR - Right volume for Voice x
-reg [7:0] VxPL    [N_VOICES-1:0];    // $x2 Pitch low byte
-reg [7:0] VxPH    [N_VOICES-1:0];    // $x3 Pitch high 6 bits
-reg [7:0] VxSRCN  [N_VOICES-1:0];    // $x4 Source number
-reg [7:0] VxADSR1 [N_VOICES-1:0];    // $x5 ADSR - part 1
-reg [7:0] VxADSR2 [N_VOICES-1:0];    // $x6 ADSR - part 2
-reg [7:0] VxGAIN  [N_VOICES-1:0];    // $x7 GAIN
-reg [7:0] VxENVX  [N_VOICES-1:0];    // $x8 Current envelope value for Voice X.
-reg [7:0] VxOUTX  [N_VOICES-1:0];    // $x9 Value after envelope mult, but before VOL mult
+reg [7:0] _regs   [127:0];           // ALL REGS!
 
-reg [7:0] MVOLL; // $0C Main Volume L
-reg [7:0] MVOLR; // $1C Main Volume R
-reg [7:0] EVOLL; // $2C Echo Volume L
-reg [7:0] EVOLR; // $3C Echo Volume R
-reg [7:0] KON;   // $4C Key On 
-reg [7:0] KOFF;  // $5C Key Off
-reg [7:0] FLG;   // $6C Flags (reset, mute, echo, noise clock)
-reg [7:0] ENDX;  // $7C Indicates source end block
-
-reg [7:0] EFB;  // $0D Echo Feedback
-/* unused */    // $1D
-reg [7:0] PMON; // $2D Pitch Modulation
-reg [7:0] NON;  // $3D Noise on/off
-reg [7:0] EON;  // $4D Echo on/off
-reg [7:0] DIR;  // $5D Offset address for source directory
-reg [7:0] ESA;  // $6D Offset address for echo data
-reg [7:0] EDL;  // $7D Flags (reset, mute, echo, noise clock)
-
-reg[7:0] Cx [7:0]; // FIR Filter coefficients
+`ifdef DEBUG_DSP
+assign __debug_out_regs = _regs;
+generate
+for(gi=0; gi<8; gi+=1) begin:gen_debout_outputs
+  assign __debug_voice_output[gi] = decoder_output[gi];
+  assign __debug_voice_cursors[gi] = decoder_cursor[gi];
+  assign __debug_voice_ram_address[gi] = decoder_ram_address[gi];
+end
+endgenerate
+`endif
 
 /////////////////////////////////////////////
 // Register read/write logic
@@ -105,61 +129,23 @@ reg [7:0] reg_data_out;
 assign dsp_reg_data_out = reg_data_out;
 
 // Read reg
-always @(*) begin
-  casez (dsp_reg_address)
-    8'h?0: reg_data_out = VxVOLL[ dsp_reg_address[6:4] ];  
-    8'h?1: reg_data_out = VxVOLR[ dsp_reg_address[6:4] ];  
-    8'h?2: reg_data_out = VxPL[ dsp_reg_address[6:4] ];
-    8'h?3: reg_data_out = VxPH[ dsp_reg_address[6:4] ];
-    8'h?8: reg_data_out = {1'b0, VxENVX[dsp_reg_address[6:4]][6:0]};  
-    8'h?9: reg_data_out = {1'b0, VxOUTX[dsp_reg_address[6:4]][6:0]};
+assign reg_data_out = _regs[ dsp_reg_address[6:0] ];
 
-    8'h0C: reg_data_out = MVOLL;
-    8'h1C: reg_data_out = MVOLR;
-    8'h2C: reg_data_out = EVOLL;
-    8'h3C: reg_data_out = EVOLR;
-    default: reg_data_out = 0;
-  endcase
-end
-
-// Write to Reg
+// Register resets
 generate
-for(gi=0; gi<N_VOICES; gi=gi+1) begin:per_voice_reset_logic
-	always @(posedge clock) begin
-	  if(reset) begin
-	    VxVOLL[ gi ] <= 8'b01111111 >>> 2;
-		 VxVOLR[ gi ] <= 8'b01111111 >>> 2;
-		 VxENVX[ gi ] <= 8'b01111111;
-	  end else
-	  if(dsp_reg_write_enable) begin
-		 casez (dsp_reg_address)
-			{gi[3:0],4'h0}: VxVOLL[ gi ] <= dsp_reg_data_in;  
-			{gi[3:0],4'h1}: VxVOLR[ gi ] <= dsp_reg_data_in;
-			{gi[3:0],4'h2}: VxPL  [ gi ] <= dsp_reg_data_in;
-			{gi[3:0],4'h3}: VxPH  [ gi ] <= dsp_reg_data_in;
-			{gi[3:0],4'h8}: VxENVX[ gi ] <= dsp_reg_data_in & 8'b0111_1111;  
-			{gi[3:0],4'h9}: VxOUTX[ gi ] <= dsp_reg_data_in;
-			default: begin end
-		 endcase
-	  end
-	end
+for(gi=0; gi<128; gi+=1) begin:register_write_reset
+  always @(posedge clock) begin
+    if(reset) begin
+      _regs[gi] <= 8'b0;
+    end
+  end
 end
 endgenerate
 
-// Write and reset for non-voice registers
+// Register writes
 always @(posedge clock) begin
-  if(reset) begin
-	  MVOLL <= 8'b01111111;
-	  MVOLR <= 8'b01111111;
-  end else
-  if(dsp_reg_write_enable) begin
-	 casez (dsp_reg_address)
-		8'h0C: MVOLL <= dsp_reg_data_in;
-		8'h1C: MVOLR <= dsp_reg_data_in;
-		8'h2C: EVOLL <= dsp_reg_data_in;
-		8'h3C: EVOLR <= dsp_reg_data_in;
-		default: begin end
-	 endcase
+  if(!reset && dsp_reg_write_enable) begin // from outside
+    _regs[ dsp_reg_address[6:0] ] <= dsp_reg_data_in;
   end
 end
 
@@ -176,8 +162,9 @@ wire [15:0] decoder_cursor [7:0];
 // Form the pitch for each voice from registers
 wire [13:0] decoder_pitch [7:0];
 generate
-for(gi=0; gi<8; gi=gi+1) begin:m
-  assign decoder_pitch[gi] = {VxPH[gi][5:0], VxPL[gi][7:0]};
+for(gi=0; gi<8; gi=gi+1) begin:decoder_input_assignments
+  //  14 bit decoder pitch = {Pitch High              , Pitch Low               }
+  assign decoder_pitch[gi] = {_regs[ REG_PH[gi] ][5:0], _regs[ REG_PL[gi] ][7:0]};  //{VxPH[gi][5:0], VxPL[gi][7:0]};
 end
 endgenerate
 
@@ -192,8 +179,8 @@ DSPVoiceDecoder decoders [7:0] (
   .ram_address(decoder_ram_address),
   .ram_data(ram_data),
   .ram_read_request( decoder_write_requests ), /// !!!!!! TODO FIXME BROKEN
-  .start_address( 16'b0 ),
-  .loop_address( 16'b0 ),
+  .start_address( 16'b0 ), // TODO
+  .loop_address( 16'b0 ), // TODO
   .pitch( decoder_pitch ),
   .current_output( decoder_output ),
   .reached_end( decoder_reached_end ),
@@ -212,29 +199,29 @@ localparam integer VOICE_RESUME [7:0] = '{ 26, 22, 18, 14, 10, 6, 2, 62 };
 reg signed [31:0] dac_sample_l;
 reg signed [31:0] dac_sample_r;
 always @* begin
-  dac_sample_l =                $signed(decoder_output[0]) * $signed(VxVOLL[0]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(VxVOLL[1]); 
-  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(VxVOLL[2]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(VxVOLL[3]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[4]) * $signed(VxVOLL[4]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[5]) * $signed(VxVOLL[5]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[6]) * $signed(VxVOLL[6]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[7]) * $signed(VxVOLL[7]);
+  dac_sample_l =                $signed(decoder_output[0]) * $signed(_regs[REG_VOLL[0]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(_regs[REG_VOLL[1]]); 
+  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(_regs[REG_VOLL[2]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(_regs[REG_VOLL[3]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[4]) * $signed(_regs[REG_VOLL[4]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[5]) * $signed(_regs[REG_VOLL[5]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[6]) * $signed(_regs[REG_VOLL[6]]);
+  dac_sample_l = dac_sample_l + $signed(decoder_output[7]) * $signed(_regs[REG_VOLL[7]]);
   dac_sample_l = dac_sample_l >>> 7;
 
-  dac_sample_l = (dac_sample_l * $signed(MVOLL)) >>> 7;
+  dac_sample_l = (dac_sample_l * $signed( _regs[REG_MVOLL] )) >>> 7;
 
-  dac_sample_r =                $signed(decoder_output[0]) * $signed(VxVOLR[0]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[1]) * $signed(VxVOLR[1]); 
-  dac_sample_r = dac_sample_r + $signed(decoder_output[2]) * $signed(VxVOLR[2]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[3]) * $signed(VxVOLR[3]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[4]) * $signed(VxVOLR[4]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[5]) * $signed(VxVOLR[5]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[6]) * $signed(VxVOLR[6]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[7]) * $signed(VxVOLR[7]);
+  dac_sample_r =                $signed(decoder_output[0]) * $signed(_regs[REG_VOLR[0]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[1]) * $signed(_regs[REG_VOLR[1]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[2]) * $signed(_regs[REG_VOLR[2]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[3]) * $signed(_regs[REG_VOLR[3]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[4]) * $signed(_regs[REG_VOLR[4]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[5]) * $signed(_regs[REG_VOLR[5]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[6]) * $signed(_regs[REG_VOLR[6]]);
+  dac_sample_r = dac_sample_r + $signed(decoder_output[7]) * $signed(_regs[REG_VOLR[7]]);
   dac_sample_r = dac_sample_r >>> 7;
 
-  dac_sample_r = (dac_sample_r * $signed(MVOLR)) >>> 7;
+  dac_sample_r = (dac_sample_r * $signed(_regs[REG_MVOLL])) >>> 7;
 end
 
 reg [2:0] current_voice /* verilator public */;

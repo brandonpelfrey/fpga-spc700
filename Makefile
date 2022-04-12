@@ -18,7 +18,7 @@ endif
 
 CXXFLAGS += -std=c++17
 CXXFLAGS += -I$(VERILATOR_INC) -Wno-attributes -Ofast
-VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED -Ofast
+VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED -O3 --x-assign fast --x-initial fast --noassert -DDEBUG_DSP
 
 .PHONY: all all-verilate all-test clean
 all: all-verilate all-test
@@ -72,7 +72,7 @@ IMGUI_FLAGS := -Igui/imgui -Igui/imgui/backends
 gui: $(wildcard src/*.h) gui/gui.cpp build/libTestDSP.a
 	$(CXX) $(CXXFLAGS) $(IMGUI_FLAGS) \
 		-Isrc -Ibuild/build-TestDSP \
-		gui/gui.cpp gui/verilator_controller.cpp \
+		gui/*.cpp \
 		gui/imgui/imgui*.cpp \
 		gui/imgui/backends/imgui_impl_sdl.cpp \
 		gui/imgui/backends/imgui_impl_opengl3.cpp \

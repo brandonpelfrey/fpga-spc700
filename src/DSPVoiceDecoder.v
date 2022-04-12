@@ -194,7 +194,7 @@ always @(posedge clock) begin
 
       ///////////////////////////////////////////////////////////////////////////////////
       STATE_PROCESS_SAMPLE: begin
-        // We can only be in this state if cursor >= 4096 in the cursor.
+        // Note: We can only enter this state if cursor >= 4096.
         // Other combinational logic in the module 'filter_out' computes the appropriate
         // filtered sample value depending on the state of the header data (Raw, ADPCM, etc.)
         previous_samples[3] <= previous_samples[2];

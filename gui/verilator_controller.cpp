@@ -38,10 +38,17 @@ bool VerilatorController::getDSPState(DSPState *out)
   out->ram_address = top.ram_address;
   out->ram_data = top.ram_data;
 
+  for(u8 i=0; i<128; ++i) {
+    out->register_values[i] = top.___05Fdebug_out_regs[i];
+  }
+
   for (u8 i = 0; i < DSPState::num_voices; ++i)
   {
     const unsigned voice_state = (top.voice_states_out >> (i * 4)) & 0b1111;
     out->voice[i].fsm_state = voice_state;
+    out->voice[i].decoder_address = top.___05Fdebug_voice_ram_address[i];
+    out->voice[i].decoder_cursor = top.___05Fdebug_voice_cursors[i];
+    out->voice[i].decoder_output = top.___05Fdebug_voice_output[i];
   }
 
   return true;
@@ -77,39 +84,60 @@ void VerilatorController::reset()
   m_dsp_bench->reset();
 
   // Initialize state
-  const auto &top = *m_dsp_bench->get();
-  for (int v = 0; v < 8; v++)
-  {
-    const u16 vpitch = 4096 / 4; // nominal
-    const u8 max_volume = 0xEF;
-    const u8 voice_volume = max_volume / 8;
+  const u8 max_volume = 0x7F;
+  const u8 voice_volume = max_volume / 8;
 
-    // Pitch low (x2)
-    top.dsp_reg_address = (v << 4) | 2;
-    top.dsp_reg_data_in = vpitch & 0xFF;
-    top.dsp_reg_write_enable = 1;
-    m_dsp_bench->tick();
+  setDSPRegister(DSPRegister_VOLL0, voice_volume);
+  setDSPRegister(DSPRegister_VOLL1, voice_volume);
+  setDSPRegister(DSPRegister_VOLL2, voice_volume);
+  setDSPRegister(DSPRegister_VOLL3, voice_volume);
+  setDSPRegister(DSPRegister_VOLL4, voice_volume);
+  setDSPRegister(DSPRegister_VOLL5, voice_volume);
+  setDSPRegister(DSPRegister_VOLL6, voice_volume);
+  setDSPRegister(DSPRegister_VOLL7, voice_volume);
 
-    // Pitch high (x3)
-    top.dsp_reg_address = (v << 4) | 3;
-    top.dsp_reg_data_in = (vpitch >> 8) & 0x3F;
-    top.dsp_reg_write_enable = 1;
-    m_dsp_bench->tick();
+  setDSPRegister(DSPRegister_VOLR0, voice_volume);
+  setDSPRegister(DSPRegister_VOLR1, voice_volume);
+  setDSPRegister(DSPRegister_VOLR2, voice_volume);
+  setDSPRegister(DSPRegister_VOLR3, voice_volume);
+  setDSPRegister(DSPRegister_VOLR4, voice_volume);
+  setDSPRegister(DSPRegister_VOLR5, voice_volume);
+  setDSPRegister(DSPRegister_VOLR6, voice_volume);
+  setDSPRegister(DSPRegister_VOLR7, voice_volume);
 
-    // Volume Left (x0)
-    top.dsp_reg_address = (v << 4) | 0;
-    top.dsp_reg_data_in = voice_volume;
-    top.dsp_reg_write_enable = 1;
-    m_dsp_bench->tick();
+  setDSPRegister(DSPRegister_ENVX0, voice_volume);
+  setDSPRegister(DSPRegister_ENVX1, voice_volume);
+  setDSPRegister(DSPRegister_ENVX2, voice_volume);
+  setDSPRegister(DSPRegister_ENVX3, voice_volume);
+  setDSPRegister(DSPRegister_ENVX4, voice_volume);
+  setDSPRegister(DSPRegister_ENVX5, voice_volume);
+  setDSPRegister(DSPRegister_ENVX6, voice_volume);
+  setDSPRegister(DSPRegister_ENVX7, voice_volume);
 
-    // Volume Right (x1)
-    top.dsp_reg_address = (v << 4) | 1;
-    top.dsp_reg_data_in = voice_volume;
-    top.dsp_reg_write_enable = 1;
-    m_dsp_bench->tick();
-  }
+  const u16 vpitch = 4096 / 4; // nominal
+  const u8 PL = vpitch & 0xFF;
+  const u8 PH = (vpitch >> 8) & 0x3F;
 
-  top.dsp_reg_write_enable = 0;
+  setDSPRegister(DSPRegister_PL0, PL);
+  setDSPRegister(DSPRegister_PL1, PL);
+  setDSPRegister(DSPRegister_PL2, PL);
+  setDSPRegister(DSPRegister_PL3, PL);
+  setDSPRegister(DSPRegister_PL4, PL);
+  setDSPRegister(DSPRegister_PL5, PL);
+  setDSPRegister(DSPRegister_PL6, PL);
+  setDSPRegister(DSPRegister_PL7, PL);
+
+  setDSPRegister(DSPRegister_PH0, PH);
+  setDSPRegister(DSPRegister_PH1, PH);
+  setDSPRegister(DSPRegister_PH2, PH);
+  setDSPRegister(DSPRegister_PH3, PH);
+  setDSPRegister(DSPRegister_PH4, PH);
+  setDSPRegister(DSPRegister_PH5, PH);
+  setDSPRegister(DSPRegister_PH6, PH);
+  setDSPRegister(DSPRegister_PH7, PH);
+
+  setDSPRegister(DSPRegister_MVOLL, max_volume);
+  setDSPRegister(DSPRegister_MVOLR, max_volume);
 }
 
 void VerilatorController::sim_thread_func()

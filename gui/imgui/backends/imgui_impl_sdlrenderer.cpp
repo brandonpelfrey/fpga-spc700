@@ -12,6 +12,7 @@
 //  [X] Renderer: User texture binding. Use 'SDL_Texture*' as ImTextureID. Read the FAQ about ImTextureID!
 //  [X] Renderer: Support for large meshes (64k+ vertices) with 16-bit indices.
 // Missing features:
+//  [ ] Renderer: Multi-viewport support (multiple windows).
 
 // You can copy and use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
 // If you are new to Dear ImGui, read documentation from the docs/ folder + read the top of imgui.cpp.
@@ -42,7 +43,7 @@ struct ImGui_ImplSDLRenderer_Data
 {
     SDL_Renderer*   SDLRenderer;
     SDL_Texture*    FontTexture;
-    ImGui_ImplSDLRenderer_Data() { memset(this, 0, sizeof(*this)); }
+    ImGui_ImplSDLRenderer_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
 
 // Backend data stored in io.BackendRendererUserData to allow support for multiple Dear ImGui contexts

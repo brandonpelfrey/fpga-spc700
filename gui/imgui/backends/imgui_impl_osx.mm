@@ -8,6 +8,8 @@
 //  [X] Platform: OSX clipboard is supported within core Dear ImGui (no specific code in this backend).
 //  [X] Platform: Gamepad support. Enabled with 'io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad'.
 //  [X] Platform: IME support.
+// Issues:
+//  [ ] Platform: Multi-viewport / platform windows.
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
 // Prefer including the entire imgui/ repository into your project (either as a copy or as a submodule), and only build the backends you need.
@@ -23,6 +25,7 @@
 
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
+//  2022-03-22: Inputs: Monitor NSKeyUp events to catch missing keyUp for key when user press Cmd + key
 //  2022-02-07: Inputs: Forward keyDown/keyUp events to OS when unused by dear imgui.
 //  2022-01-31: Fix building with old Xcode versions that are missing gamepad features.
 //  2022-01-26: Inputs: replaced short-lived io.AddKeyModsEvent() (added two weeks ago)with io.AddKeyEvent() using ImGuiKey_ModXXX flags. Sorry for the confusion.
@@ -367,7 +370,7 @@ bool ImGui_ImplOSX_Init(NSView* view)
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;           // We can honor GetMouseCursor() values (optional)
     //io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
     //io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;    // We can create multi-viewports on the Platform side (optional)
-    //io.BackendFlags |= ImGuiBackendFlags_HasMouseHoveredViewport; // We can set io.MouseHoveredViewport correctly (optional, not easy)
+    //io.BackendFlags |= ImGuiBackendFlags_HasMouseHoveredViewport; // We can call io.AddMouseViewportEvent() with correct data (optional)
     io.BackendPlatformName = "imgui_impl_osx";
 
     // Load cursors. Some of them are undocumented.
@@ -429,7 +432,7 @@ bool ImGui_ImplOSX_Init(NSView* view)
 
     // Some events do not raise callbacks of AppView in some circumstances (for example when CMD key is held down).
     // This monitor taps into global event stream and captures these events.
-    NSEventMask eventMask = NSEventMaskFlagsChanged;
+    NSEventMask eventMask = NSEventMaskFromType(NSKeyUp) | NSEventMaskFlagsChanged;
     [NSEvent addLocalMonitorForEventsMatchingMask:eventMask handler:^NSEvent * _Nullable(NSEvent *event)
     {
         ImGui_ImplOSX_HandleEvent(event, g_KeyEventResponder);
@@ -648,7 +651,7 @@ bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             wheel_dx = [event deltaX];
             wheel_dy = [event deltaY];
         }
-        if (wheel_dx != 0.0 || wheel_dx != 0.0)
+        if (wheel_dx != 0.0 || wheel_dy != 0.0)
             io.AddMouseWheelEvent((float)wheel_dx * 0.1f, (float)wheel_dy * 0.1f);
 
         return io.WantCaptureMouse;

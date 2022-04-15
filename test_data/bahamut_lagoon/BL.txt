@@ -1,0 +1,62 @@
+| ID  |      Offset     | Size  |         Name         | ADSR | PITCH | LOOP |
+------------------------------------------------------------------------------
+| $01 | $C4679A-$C467BF | $0026 | unknown-glitch 1     | FFE0 | FDB3  | 0000 |
+| $02 | $C467C0-$C467D3 | $0014 | unknown-glitch 2     | FFE0 | FDB3  | 0000 |
+| $03 | $C467D4-$C467F9 | $0026 | unknown-glitch 3     | FFE0 | 0000  | 1B00 |
+| $04 | $C467FA-$C4680D | $0014 | unknown-glitch 4     | FFE0 | FDB6  | 0000 |
+| $05 | $C4680E-$C46845 | $0038 | unknown-glitch 5     | FFE0 | 0000  | 1B00 |
+| $06 | $C46846-$C46898 | $0053 | unknown-glitch 6     | FFE0 | 0000  | 1B00 |
+| $07 | $C46899-$C468C7 | $002F | unknown-glitch 7     | FFE0 | 0000  | 1B00 |
+| $08 | $C468C8-$C46959 | $0092 | unknown-glitch 8     | FFE0 | 0000  | 1B00 |
+| $09 | $000000-$000000 | $0000 | dummy 1              | 0000 | 0000  | 0000 |
+| $0A | $000000-$000000 | $0000 | dummy 2              | 0000 | 0000  | 0000 |
+| $0B | $000000-$000000 | $0000 | dummy 3              | 0000 | 0000  | 0000 |
+| $0C | $000000-$000000 | $0000 | dummy 4              | 0000 | 0000  | 0000 |
+| $0D | $000000-$000000 | $0000 | dummy 5              | 0000 | 0000  | 0000 |
+| $0E | $000000-$000000 | $0000 | dummy 6              | 0000 | 0000  | 0000 |
+| $0F | $000000-$000000 | $0000 | dummy 7              | 0000 | 0000  | 0000 |
+| $10 | $000000-$000000 | $0000 | dummy 8              | 0000 | 0000  | 0000 |
+| $11 | $C4695A-$C46CF1 | $0398 | accordion            | FFE0 | FDC0  | 7203 |
+| $12 | $C46CF2-$C47F9E | $12AD | synth organ          | F5E0 | FFF0  | 1B00 |
+| $13 | $C47F9F-$C485D9 | $063B | flute 1              | FFE0 | FDBC  | 1506 |
+| $14 | $C485DA-$C49055 | $0A7C | wind flute           | FFE0 | FCD5  | 7704 |
+| $15 | $C49056-$C49A1D | $09C8 | english horn         | FFE0 | FDBD  | A209 |
+| $16 | $C49A1E-$C4A57A | $0B5D | bubbling water       | FFE0 | 0000  | 6C00 |
+| $17 | $C4A57B-$C4C69A | $2120 | strings              | FFE0 | 06FF  | DC08 |
+| $18 | $C4C69B-$C4DB75 | $14DB | french horn          | FFE0 | 00EA  | 7704 |
+| $19 | $C4DB76-$C4F0AA | $1535 | chorus               | FFE0 | FFF0  | 7704 |
+| $1A | $C4F0AB-$C4F3FA | $0350 | clarinet             | FFE0 | FDC0  | 2A03 |
+| $1B | $C4F3FB-$C4F978 | $057E | conga drum           | FFE0 | 0000  | 7C05 |
+| $1C | $C4F979-$C50C1C | $12A4 | tam                  | FFE0 | 02E0  | 6A0E |
+| $1D | $C50C1D-$C514E8 | $08CC | smack                | FFE0 | 0000  | CA08 |
+| $1E | $C514E9-$C519FA | $0512 | bass                 | FFE0 | FCA0  | 0204 |
+| $1F | $C519FB-$C52B75 | $117B | crash cymbal         | FFE0 | 0000  | CF09 |
+| $20 | $C52B76-$C5337B | $0806 | saxophone            | FFE0 | FFCA  | B307 |
+| $21 | $C5337C-$C53551 | $01D6 | oboe                 | FFE0 | FDC0  | B001 |
+| $22 | $C53552-$C53928 | $03D7 | marimba              | FFE0 | FDBC  | B103 |
+| $23 | $C53929-$C53D2C | $0404 | trumpet              | FFE0 | 019D  | D503 |
+| $24 | $C53D2D-$C54193 | $0467 | shaker 1             | FFE0 | 0000  | 6504 |
+| $25 | $C54194-$C545FA | $0467 | shaker 2             | FFE0 | 0000  | 6504 |
+| $26 | $C545FB-$C550F4 | $0AFA | open hi hat          | FFE0 | 0000  | F80A |
+| $27 | $C550F5-$C55495 | $03A1 | pizzicato string     | FFE0 | FFC7  | 4E03 |
+| $28 | $C55496-$C55698 | $0203 | trombone             | FFE0 | FFC8  | 5F01 |
+| $29 | $C55699-$C56A5C | $13C4 | orch hit             | FFE0 | FCE0  | C213 |
+| $2A | $C56A5D-$C57F0A | $14AE | futuristic synth     | FFE0 | FFEA  | 7704 |
+| $2B | $C57F0B-$C58EF9 | $0FEF | flute 2              | FFE0 | 08F0  | 730E |
+| $2C | $C58EFA-$C5AC83 | $1D8A | bright piano         | FFE0 | 05C7  | 5F0A |
+| $2D | $C5AC84-$C5B06C | $03E9 | bottle blow 1        | FFE0 | 04C0  | 3702 |
+| $2E | $C5B06D-$C5B3C5 | $0359 | bottle blow 2        | FFE0 | FFC7  | B502 |
+| $2F | $C5B3C6-$C5C0F6 | $0D31 | kick drum            | FFE0 | 0000  | 2F0D |
+| $30 | $C5C0F7-$C5C47C | $0386 | acoustic bass        | FFE0 | FFC5  | 3303 |
+| $31 | $C5C47D-$C5D1D1 | $0D55 | trombone             | FFE0 | 03F0  | 7704 |
+| $32 | $C5D1D2-$C5D854 | $0683 | bottle blow 3        | FFE0 | FDBC  | 5D06 |
+| $33 | $C5D855-$C5FA43 | $21EF | cello                | FFE0 | 021A  | DC08 |
+| $34 | $C5FA44-$C616EC | $1CA9 | piano                | FFE0 | FFBD  | 2C19 |
+| $35 | $C616ED-$C61BC8 | $04DC | grand piano          | FFE0 | FFC5  | 9603 |
+| $36 | $C61BC9-$C628F9 | $0D31 | snare drum           | FFE0 | 0000  | 2F0D |
+| $37 | $C628FA-$C62D72 | $0479 | organ                | FFE0 | FCA0  | F003 |
+| $38 | $C62D73-$C6386C | $0AFA | tom                  | FFE0 | 0000  | F80A |
+| $39 | $C6386D-$C63A15 | $01A9 | electric guitar      | FFE0 | FFCA  | 5601 |
+| $3A | $C63A16-$C6485D | $0E48 | harmonica            | FFE0 | FFF0  | 5F01 |
+| $3B | $C6485E-$C65480 | $0C23 | rock organ           | FFE0 | FFBA  | CC03 |
+| $3C | $C65481-$C65DC1 | $0941 | unknown              | FFE0 | FFCA  | EE08 |

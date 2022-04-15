@@ -105,15 +105,6 @@ void VerilatorController::reset()
   setDSPRegister(DSPRegister_VOLR6, voice_volume);
   setDSPRegister(DSPRegister_VOLR7, voice_volume);
 
-  setDSPRegister(DSPRegister_ENVX0, voice_volume);
-  setDSPRegister(DSPRegister_ENVX1, voice_volume);
-  setDSPRegister(DSPRegister_ENVX2, voice_volume);
-  setDSPRegister(DSPRegister_ENVX3, voice_volume);
-  setDSPRegister(DSPRegister_ENVX4, voice_volume);
-  setDSPRegister(DSPRegister_ENVX5, voice_volume);
-  setDSPRegister(DSPRegister_ENVX6, voice_volume);
-  setDSPRegister(DSPRegister_ENVX7, voice_volume);
-
   const u16 vpitch = 4096 / 4; // nominal
   const u8 PL = vpitch & 0xFF;
   const u8 PH = (vpitch >> 8) & 0x3F;
@@ -138,6 +129,9 @@ void VerilatorController::reset()
 
   setDSPRegister(DSPRegister_MVOLL, max_volume);
   setDSPRegister(DSPRegister_MVOLR, max_volume);
+
+  // Experimenting with pitch modulation
+  // setDSPRegister(DSPRegister_PMON, 0b01000000);
 }
 
 void VerilatorController::sim_thread_func()

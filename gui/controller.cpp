@@ -42,6 +42,8 @@ void Controller::loadSPCFromFile(const char *file_path)
   LOAD(&dsp_regs[0], 0x10100, 128)
   for (u8 i = 0; i < 128; ++i)
     setDSPRegister(i, dsp_regs[i]);
+    
+#undef LOAD
 }
 
 const char *dsp_register_names[128] = {

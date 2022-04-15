@@ -160,11 +160,30 @@ reg decoder_advance_trigger [7:0];
 wire [15:0] decoder_cursor [7:0];
 
 // Form the pitch for each voice from registers
+reg [31:0] decoder_pitch_ext [7:0]; // Extra precision for multiplies.
 wire [13:0] decoder_pitch [7:0];
+
 generate
 for(gi=0; gi<8; gi=gi+1) begin:decoder_input_assignments
-  //  14 bit decoder pitch = {Pitch High              , Pitch Low               }
-  assign decoder_pitch[gi] = {_regs[ REG_PH[gi] ][5:0], _regs[ REG_PL[gi] ][7:0]};  //{VxPH[gi][5:0], VxPL[gi][7:0]};
+
+assign decoder_pitch[gi] = decoder_pitch_ext[gi][13:0];
+
+// Calculate pitch from registers + pitch modulation of previous voice
+always @* begin
+  // Clock?
+  decoder_pitch_ext[gi] = {18'b0, _regs[ REG_PH[gi] ][5:0], _regs[ REG_PL[gi] ][7:0]};
+
+  if(gi > 0 && _regs[REG_PMON][gi]) begin
+    // P' = P + P * OUTX[i-1]
+    decoder_pitch_ext[gi] = $signed(decoder_pitch_ext[gi]) + 
+      ( $signed(decoder_pitch_ext[gi]) * $signed({24'b0, _regs[REG_OUTX[gi-1]]}) ) >>> 7;
+
+    // Saturate
+    if(decoder_pitch_ext[gi] > 32'b11111111111111) 
+      decoder_pitch_ext[gi] = 32'b11111111111111;
+  end
+end
+
 end
 endgenerate
 
@@ -187,6 +206,19 @@ DSPVoiceDecoder decoders [7:0] (
   .advance_trigger( decoder_advance_trigger ),
   .cursor( decoder_cursor) );
 
+wire [2:0]  queue_size;
+wire [15:0] queue_output;
+SampleQueue #(.QUEUE_SIZE(8)) queue_test(
+  .clock(clock),
+  .reset(reset),
+  .size(queue_size),
+
+  .enqueue(0),
+  .input_sample(0),
+  .dequeue(0),
+  .output_latch(queue_output)
+);
+
 //////////////////////////////////////////////
 
 // Clocked logic - Reset
@@ -196,32 +228,82 @@ localparam integer VOICE_RESUME [7:0] = '{ 26, 22, 18, 14, 10, 6, 2, 62 };
 
 // Combinatorial mixing logic
 // Combinatorial circuit continuously feeds into 'sample' which is latched into dac_out at M63
+reg signed [31:0] mix_temp [7:0];
+
 reg signed [31:0] dac_sample_l;
 reg signed [31:0] dac_sample_r;
 always @* begin
-  dac_sample_l =                $signed(decoder_output[0]) * $signed(_regs[REG_VOLL[0]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[1]) * $signed(_regs[REG_VOLL[1]]); 
-  dac_sample_l = dac_sample_l + $signed(decoder_output[2]) * $signed(_regs[REG_VOLL[2]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[3]) * $signed(_regs[REG_VOLL[3]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[4]) * $signed(_regs[REG_VOLL[4]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[5]) * $signed(_regs[REG_VOLL[5]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[6]) * $signed(_regs[REG_VOLL[6]]);
-  dac_sample_l = dac_sample_l + $signed(decoder_output[7]) * $signed(_regs[REG_VOLL[7]]);
-  dac_sample_l = dac_sample_l >>> 7;
 
+  // TODO : pipeline channels to reduce number of multipliers
+  // gen + compute env
+  // >env 
+  // >outx + mul vol
+  // >main
+  // (echo mixing))
+
+  // TODO : proper envelope generation
+  _regs[REG_ENVX[0]] = 8'h7F;
+  _regs[REG_ENVX[1]] = 8'h7F;
+  _regs[REG_ENVX[2]] = 8'h7F;
+  _regs[REG_ENVX[3]] = 8'h7F;
+  _regs[REG_ENVX[4]] = 8'h7F;
+  _regs[REG_ENVX[5]] = 8'h7F;
+  _regs[REG_ENVX[6]] = 8'h7F;
+  _regs[REG_ENVX[7]] = 8'h7F;
+
+  mix_temp[0] = $signed(decoder_output[0]) * $signed(_regs[REG_ENVX[0]]);
+  mix_temp[1] = $signed(decoder_output[1]) * $signed(_regs[REG_ENVX[1]]);
+  mix_temp[2] = $signed(decoder_output[2]) * $signed(_regs[REG_ENVX[2]]);
+  mix_temp[3] = $signed(decoder_output[3]) * $signed(_regs[REG_ENVX[3]]);
+  mix_temp[4] = $signed(decoder_output[4]) * $signed(_regs[REG_ENVX[4]]);
+  mix_temp[5] = $signed(decoder_output[5]) * $signed(_regs[REG_ENVX[5]]);
+  mix_temp[6] = $signed(decoder_output[6]) * $signed(_regs[REG_ENVX[6]]);
+  mix_temp[7] = $signed(decoder_output[7]) * $signed(_regs[REG_ENVX[7]]);
+
+  mix_temp[0] = mix_temp[0] >>> 7;
+  mix_temp[1] = mix_temp[1] >>> 7;
+  mix_temp[2] = mix_temp[2] >>> 7;
+  mix_temp[3] = mix_temp[3] >>> 7;
+  mix_temp[4] = mix_temp[4] >>> 7;
+  mix_temp[5] = mix_temp[5] >>> 7;
+  mix_temp[6] = mix_temp[6] >>> 7;
+  mix_temp[7] = mix_temp[7] >>> 7;
+
+  _regs[REG_OUTX[0]] = mix_temp[0][7:0];
+  _regs[REG_OUTX[1]] = mix_temp[1][7:0];
+  _regs[REG_OUTX[2]] = mix_temp[2][7:0];
+  _regs[REG_OUTX[3]] = mix_temp[3][7:0];
+  _regs[REG_OUTX[4]] = mix_temp[4][7:0];
+  _regs[REG_OUTX[5]] = mix_temp[5][7:0];
+  _regs[REG_OUTX[6]] = mix_temp[6][7:0];
+  _regs[REG_OUTX[7]] = mix_temp[7][7:0];
+
+  dac_sample_l =                $signed(mix_temp[0]) * $signed(_regs[REG_VOLL[0]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[1]) * $signed(_regs[REG_VOLL[1]]); 
+  dac_sample_l = dac_sample_l + $signed(mix_temp[2]) * $signed(_regs[REG_VOLL[2]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[3]) * $signed(_regs[REG_VOLL[3]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[4]) * $signed(_regs[REG_VOLL[4]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[5]) * $signed(_regs[REG_VOLL[5]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[6]) * $signed(_regs[REG_VOLL[6]]);
+  dac_sample_l = dac_sample_l + $signed(mix_temp[7]) * $signed(_regs[REG_VOLL[7]]);
+  dac_sample_l = dac_sample_l >>> 7;
   dac_sample_l = (dac_sample_l * $signed( _regs[REG_MVOLL] )) >>> 7;
 
-  dac_sample_r =                $signed(decoder_output[0]) * $signed(_regs[REG_VOLR[0]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[1]) * $signed(_regs[REG_VOLR[1]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[2]) * $signed(_regs[REG_VOLR[2]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[3]) * $signed(_regs[REG_VOLR[3]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[4]) * $signed(_regs[REG_VOLR[4]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[5]) * $signed(_regs[REG_VOLR[5]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[6]) * $signed(_regs[REG_VOLR[6]]);
-  dac_sample_r = dac_sample_r + $signed(decoder_output[7]) * $signed(_regs[REG_VOLR[7]]);
+  dac_sample_r =                $signed(mix_temp[0]) * $signed(_regs[REG_VOLR[0]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[1]) * $signed(_regs[REG_VOLR[1]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[2]) * $signed(_regs[REG_VOLR[2]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[3]) * $signed(_regs[REG_VOLR[3]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[4]) * $signed(_regs[REG_VOLR[4]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[5]) * $signed(_regs[REG_VOLR[5]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[6]) * $signed(_regs[REG_VOLR[6]]);
+  dac_sample_r = dac_sample_r + $signed(mix_temp[7]) * $signed(_regs[REG_VOLR[7]]);
   dac_sample_r = dac_sample_r >>> 7;
+  dac_sample_r = (dac_sample_r * $signed(_regs[REG_MVOLR])) >>> 7;
 
-  dac_sample_r = (dac_sample_r * $signed(_regs[REG_MVOLL])) >>> 7;
+
+
+
+
 end
 
 reg [2:0] current_voice /* verilator public */;

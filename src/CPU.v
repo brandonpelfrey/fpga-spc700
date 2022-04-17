@@ -12,9 +12,10 @@ module CPU(
 	/* Debug */
 	out_halted
 );
-	/*
-	 * Inputs / Outputs
-	 */
+	/**************************************************************************
+	 * Module I/O
+	 **************************************************************************/
+
 	input clock;
 	input reset;
 	output [15:0] out_ram_address;
@@ -23,24 +24,16 @@ module CPU(
 	output out_ram_write_enable;
 	output out_halted;
 
+	/**************************************************************************
+	 * Global Definitions
+	 **************************************************************************/
+
 	/*
 	 * Data: CPU Registers
 	 */
-	reg [7:0] R [3:0] /* verilator public */; /* Register File */
-	reg [15:0] PC /* verilator public */;     /* Program Counter */
-	reg [7:0] PSW /* verilator public */;     /* Status register */
-
-	/*
-	 * For the status register, these are the individual flag positions.
-	 */
-	parameter PSW_N = 0, /* Negative */
-	          PSW_V = 1, /* Overflow */
-	          PSW_P = 2, /* Direct Page Selector */
-	          PSW_B = 3, /* Break */
-	          PSW_H = 4, /* Half Carry */
-	          PSW_I = 5, /* Interrupt Enabled (unused) */
-	          PSW_Z = 6, /* Zero */
-	          PSW_C = 7; /* Carry */
+	reg [15:0] PC;     /* Program Counter */
+	reg [7:0] R [3:0]; /* Register File (see below) */
+	reg [7:0] PSW;     /* Status register */
 
 	/*
 	 * Data: Generic CPU state
@@ -65,10 +58,16 @@ module CPU(
 	          REGISTER_SP   = 3; /* "SP" Register */
 
 	/*
-	 * Control line bits for pipeline source and destination modes.
+	 * For the status register, these are the individual flag positions.
 	 */
-	parameter DATA_R        = 0, /* Register file */
-	          DATA_IMM      = 1; /* Decoder-generated immediate */
+	parameter PSW_N = 0, /* Negative */
+	          PSW_V = 1, /* Overflow */
+	          PSW_P = 2, /* Direct Page Selector */
+	          PSW_B = 3, /* Break */
+	          PSW_H = 4, /* Half Carry */
+	          PSW_I = 5, /* Interrupt Enabled (unused) */
+	          PSW_Z = 6, /* Zero */
+	          PSW_C = 7; /* Carry */
 
 	/*
 	 * The correspondence from data control lines for ALU operations.
@@ -79,17 +78,24 @@ module CPU(
 	          ALU_ANDNOT = 3,
 	          ALU_ADD    = 4,
 	          ALU_SUB    = 5,
-	          ALU_NONE_A = 6,
-	          ALU_NONE_B = 7;
+	          ALU_NONE_U = 6,
+	          ALU_NONE_V = 7;
 	          /* TODO */
 
-	/* XXX */
+	/**************************************************************************
+	 * Memory Bus Logic
+	 **************************************************************************/
+
+	/*
+	 * Memory bus control
+	 */
+	reg [15:0] ram_address;
 	reg [7:0] ram_write;
 	reg ram_write_enable;
 
-	assign out_halted = ~enable;
+	assign out_ram_address = ram_address;
 	assign out_ram_write = ram_write;
-	assign out_ram_write_enable = ram_write_enable;
+	assign out_ram_write_enable = ram_write_enable & enable;
 
 	/**************************************************************************
 	 * ALU Implementation (Sub, Add, Logical)
@@ -104,6 +110,7 @@ module CPU(
 	/*
 	 * Implementation of ALU logic
 	 */
+	/*
 	always @(*)
 	begin
 		case (1'b1)
@@ -131,11 +138,11 @@ module CPU(
 				alu_result = X_data_A - X_data_B - { 7'b000_0000, X_data_carry };
 			end
 
-			X_alu_mode[ALU_NONE_A]: begin
+			X_alu_mode[ALU_NONE_U]: begin
 				alu_result = X_data_A;
 			end
 
-			X_alu_mode[ALU_NONE_B]: begin
+			X_alu_mode[ALU_NONE_V]: begin
 				alu_result = X_data_B;
 			end
 
@@ -146,29 +153,38 @@ module CPU(
 
 		alu_zero = (alu_result == 8'b0000_0000);
 	end
+	*/
 
 	/**************************************************************************
 	 * Instruction Decoding Implementation
 	 **************************************************************************/
 
 	/*
+	 * Instruction decoding produces a set of control lines that choose the
+	 * execution path of the CPU. These operate on virtual U / V registers
+	 * and write their result back to other registers and/or memory.
+	 *
+	 * U and V values can be sourced a few ways (decoder controlled constant,
+	 * fetched immediate, existing register(s)). The U register is 16 bits
+	 * but the decoder constants can only be 8 bits. The V register is just 8
+	 * bits. The 16-bit U register is used for absolute addresses and
+	 * operations that combine two CPU registers (e.g. DIV).
+	 */
+
+	/*
 	 * Logic outputs from the decoder logic
 	 */
-	logic [1:0] decode_source_a_fetch; /* Input field A fetch from immediate */
-	logic       decode_source_a_load;  /* Input field A load from RAM */
-	logic [7:0] decode_source_a_mode;  /* Input field A mode */
-	logic [1:0] decode_source_a_index; /* Input field A register index */
-	logic [7:0] decode_source_a_imm;   /* Input field A immediate value */
+	logic [0:0] decode_source_u_mode;  /* Input field U mode */
+	logic [1:0] decode_source_u_index; /* Input field U register index */
+	logic [7:0] decode_source_u_imm;   /* Input field U immediate value */
 
-	logic [1:0] decode_source_b_fetch; /* Input field B fetch from immediate */
-	logic       decode_source_b_load;  /* Input field B load from RAM */
-	logic [7:0] decode_source_b_mode;  /* Input field B mode */
-	logic [1:0] decode_source_b_index; /* Input field B register index */
-	logic [7:0] decode_source_b_imm;   /* Input field B immediate value */
+	logic [0:0] decode_source_v_mode;  /* Input field V mode */
+	logic [1:0] decode_source_v_index; /* Input field V register index */
+	logic [7:0] decode_source_v_imm;   /* Input field V immediate value */
 
+	logic [3:0] decode_source_fetch;   /* Immediate values (see below) */
 	logic       decode_source_carry;   /* Input carry bit */
 
-	logic [7:0] decode_branch_target;  /* Branch relative target */
 	logic [1:0] decode_branch_load;    /* Load branch target from immediate */
 	logic       decode_branch;         /* Branch instruction */
 
@@ -179,29 +195,49 @@ module CPU(
 	logic [7:0] decode_status;         /* Raw value to update status with */
 	logic       decode_alu_enable;     /* Enable ALU in execute stage */
 	logic [7:0] decode_alu_mode;       /* ALU operation mode */
-	logic [1:0] decode_bytes;          /* Instruction byte length */
 	logic       decode_error;          /* Invalid instruction */
+
+	/*
+	 * Constants used for decode_source_fetch. These control the number of and
+	 * destination buffer for immediate bytes.
+	 *
+	 * Uses one-hot encoding.
+	 *
+	 * TODO Not sure if UV fetch is actually required, but UU definitely is.
+	 */
+	parameter DECODE_IMM_NONE = 0, /* No immediate data */
+	          DECODE_IMM_U    = 1, /* Load U immediate byte only */
+	          DECODE_IMM_V    = 2, /* Load V immediate byte only */
+	          DECODE_IMM_UV   = 3; /* Load U byte then V byte immediates. */
+
+	/*
+	 * Constants used for decode_source_*_mode (u/v). These control whether
+	 * the intermediate buffers U/V are sourced from immediate values or
+	 * registers.
+	 *
+	 * Note: Immediate values can either be decoder immediates or the bytes
+	 *       following the instruction. This distinction is controlled by
+	 *       decode_source_fetch.
+	 */
+	parameter DATA_R        = 0, /* Register file */
+	          DATA_IMM      = 1; /* Decoder-generated immediate */
 
 	/*
 	 * Implementation of decoding logic
 	 */
 	always @(*)
 	begin
-		decode_source_a_fetch = 2'b00;
-		decode_source_a_load = 1'b0;
-		decode_source_a_mode = DATA_R;
-		decode_source_a_index = REGISTER_A;
-		decode_source_a_imm = 8'bxxxx_xxxx;
+		decode_source_u_mode = DATA_R;
+		decode_source_u_index = REGISTER_A;
+		decode_source_u_imm = 8'bxxxx_xxxx;
 
-		decode_source_b_fetch = 2'b00;
-		decode_source_b_load = 1'b0;
-		decode_source_b_mode = DATA_R;
-		decode_source_b_index = REGISTER_A;
-		decode_source_b_imm = 8'bxxxx_xxxx;
+		decode_source_v_mode = DATA_R;
+		decode_source_v_index = REGISTER_A;
+		decode_source_v_imm = 8'bxxxx_xxxx;
 
+		decode_source_fetch = (1 << DECODE_IMM_NONE);
 		decode_source_carry = 1'b0;
 
-		decode_branch_target = 8'bxxxx_xxxx;
 		decode_branch_load = 2'b0;
 		decode_branch = 1'b0;
 
@@ -214,7 +250,6 @@ module CPU(
 		decode_alu_mode = 8'bxxxx_xxxx;
 		decode_alu_enable = 1'b0;
 
-		decode_bytes = 2'd1;
 		decode_error = 1'b0;
 
 		/* Instructions are grouped by similarity in the decoding logic by
@@ -286,104 +321,96 @@ module CPU(
 				/* BPL: if (!PSW.N) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_N);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_N);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b001_100_00: begin
 				/* BMI: if (PSW.N) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_ANDNOT);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_N);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_N);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b010_100_00: begin
 				/* BVC: if (!PSW.V) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_V);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_V);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b011_100_00: begin
-				/* BVC: if (PSW.V) PC += #i; */
+				/* BVS: if (PSW.V) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_ANDNOT);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_V);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_V);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b100_100_00: begin
 				/* BCC: if (!PSW.C) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_C);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_C);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b101_100_00: begin
 				/* BCS: if (PSW.C) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_ANDNOT);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_C);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_C);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b110_100_00: begin
 				/* BNE: if (!PSW.Z) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_Z);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_Z);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b111_100_00: begin
-				/* BNE: if (PSW.Z) PC += #i; */
+				/* BEQ: if (PSW.Z) PC += #i; */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_ANDNOT);
-				decode_source_a_mode = DATA_IMM;
-				decode_source_a_imm = (1 << PSW_Z);
-				decode_source_b_mode = DATA_IMM;
-				decode_source_b_imm = PSW;
+				decode_source_u_mode = DATA_IMM;
+				decode_source_u_imm = (1 << PSW_Z);
+				decode_source_v_mode = DATA_IMM;
+				decode_source_v_imm = PSW;
 				decode_branch_load = 2'b01;
 				decode_branch = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			/*
@@ -395,84 +422,76 @@ module CPU(
 				/* ORA: A = A | #i */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_OR);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b001_010_00: begin
 				/* AND: A = A & #i */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_AND);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b010_010_00: begin
 				/* EORA: A = A ^ #i */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_XOR);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b011_010_00: begin
 				/* CMP: A - #i */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_SUB);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
-				decode_bytes = 2'd2;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 			end
 
 			8'b100_010_00: begin
 				/* ADC: A = A + #i + c */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_ADD);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			8'b101_010_00: begin
 				/* SBC: A = A - #i - !c */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_SUB);
-				decode_source_a_index = REGISTER_A;
-				decode_source_b_fetch = 2'b01;
+				decode_source_u_index = REGISTER_A;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
 				decode_status_mask = (1 << PSW_Z); /* TODO N V H Z C */
-				decode_bytes = 2'd2;
 			end
 
 			8'b110_010_00: begin
 				/* CPX: X - #i */
 				decode_alu_enable = 1'b1;
 				decode_alu_mode = (1 << ALU_SUB);
-				decode_source_a_index = REGISTER_X;
-				decode_source_b_fetch = 2'b01;
-				decode_bytes = 2'd2;
+				decode_source_u_index = REGISTER_X;
+				decode_source_fetch = (1 << DECODE_IMM_V);
 			end
 
 			8'b111_010_00: begin
 				/* LDA: A = #i */
 				decode_alu_enable = 1'b1;
-				decode_alu_mode = (1 << ALU_NONE_A);
-				decode_source_a_fetch = 2'b01;
+				decode_alu_mode = (1 << ALU_NONE_U);
+				decode_source_fetch = (1 << DECODE_IMM_U);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			/*
@@ -482,11 +501,10 @@ module CPU(
 				/* OR: d[#j] |= #i */
 				/* TODO */
 				decode_alu_enable = 1'b1;
-				decode_alu_mode = (1 << ALU_NONE_A);
-				decode_source_a_fetch = 2'b01;
+				decode_alu_mode = (1 << ALU_NONE_U);
+				decode_source_fetch = (1 << DECODE_IMM_V);
 				decode_result_index = REGISTER_A;
 				decode_result_wb = 1'b1;
-				decode_bytes = 2'd2;
 			end
 
 			default: begin
@@ -496,503 +514,338 @@ module CPU(
 	end
 
 	/**************************************************************************
-	 * Pipeline Implementation
+	 * State Machine Implementation
 	 **************************************************************************/
 
-	 /*
-	  * The CPU pipeline has 8 stages:
-	  *
-	  *  - (F) Fetch      - Instruction fetch
-	  *  - (D) Decode     - Instruction decode
-	  *  - (P) Param      - Fetch 1 or 2 instruction immediate bytes
-	  *  - (L) Load       - Load operands from memory
-	  *  - (X) Execute    - Result computation
-	  *  - (S) Store      - Store results to memory
-	  *  - (W) Write-Back - Update status flags and register file
-	  *  - (Z) Sleep      - Variable delay to match original hardware
-	  */
-
 	/*
-	 * State passed from Fetch (F) to Decode (D)
-	 */
-	reg        D_ready;          /* Fetch (F) output is ready for next stage. */
-	reg [15:0] D_pc;             /* Address of the fetched instruction */
-
-	/*
-	 * State passed from Decode (D) to Param (P)
-	 */
-	reg        P_ready;          /* Decode (D) output is ready for next stage. */
-	reg [15:0] P_pc;             /* Address of the fetched instruction */
-	reg [1:0]  P_data_A_fetch;   /* Input field A is a fetched immediate */
-	reg        P_data_A_load;    /* Input field A is a load address */
-	reg [7:0]  P_data_A;         /* Input field A value */
-	reg [1:0]  P_data_B_fetch;   /* Input field B is a fetched immediate */
-	reg        P_data_B_load;    /* Input field B is a load address */
-	reg [7:0]  P_data_B;         /* Input field B value */
-	reg        P_data_carry;     /* Input carry bit */
-	reg [1:0]  P_out_index;      /* Result output register index */
-	reg        P_out_wb;         /* Enable write-back to register */
-	reg [7:0]  P_status_mask;    /* Update mask for status register */
-	reg [7:0]  P_status;         /* Constant value for PSW updates */
-	reg        P_alu_enable;     /* Enable ALU */
-	reg [7:0]  P_alu_mode;       /* ALU operation mode */
-	reg [1:0]  P_bytes;          /* Instruction encoding length */
-	reg [7:0]  P_branch_target;  /* Signed relative branch target */
-	reg [1:0]  P_branch_load;    /* Branch target is a fetched immediate */
-	reg        P_branch;         /* Instruction is a branch */
-	reg [7:0]  P_old_status;     /* Value of PSW at start of instruction */
-
-	/*
-	 * State passed from Param (P) to Load (L)
-	 */
-	reg        L_ready;          /* Decode (D) output is ready for next stage. */
-	reg [15:0] L_pc;             /* Address of the fetched instruction */
-	reg [1:0]  L_data_A_fetch;   /* Input field A is a fetched immediate */
-	reg        L_data_A_load;    /* Input field A is a load address */
-	reg [7:0]  L_data_A;         /* Input field A value */
-	reg [1:0]  L_data_B_fetch;   /* Input field B is a fetched immediate */
-	reg        L_data_B_load;    /* Input field B is a load address */
-	reg [7:0]  L_data_B;         /* Input field B value */
-	reg        L_data_carry;     /* Input carry bit */
-	reg [1:0]  L_out_index;      /* Result output register index */
-	reg        L_out_wb;         /* Enable write-back to register */
-	reg [7:0]  L_status_mask;    /* Update mask for status register */
-	reg [7:0]  L_status;         /* Constant value for PSW updates */
-	reg        L_alu_enable;     /* Enable ALU */
-	reg [7:0]  L_alu_mode;       /* ALU operation mode */
-	reg [7:0]  L_branch_target;  /* Signed relative branch target */
-	reg [1:0]  L_branch_load;    /* Branch target is a fetched immediate */
-	reg        L_branch;         /* Instruction is a branch */
-	reg [7:0]  L_old_status;     /* Value of PSW at start of instruction */
-
-	/*
-	 * State passed from Load (L) to Execute (X)
-	 */
-	reg        X_ready;          /* Param (P) output is ready for next stage. */
-	reg [15:0] X_pc;             /* Address following the current instruction */
-	reg [7:0]  X_data_A;         /* Input field A value */
-	reg [7:0]  X_data_B;         /* Input field B value */
-	reg        X_data_carry;     /* Input carry bit */
-	reg [1:0]  X_out_index;      /* Result output register index */
-	reg        X_out_wb;         /* Enable write-back to register */
-	reg [7:0]  X_status_mask;    /* Update mask for status register */
-	reg [7:0]  X_status;         /* Value of PSW at start of instruction */
-	reg [7:0]  X_old_status;     /* Value of PSW at start of instruction */
-	reg        X_alu_enable;     /* Enable ALU */
-	reg [7:0]  X_alu_mode;       /* ALU operation mode */
-	reg [7:0]  X_branch_target;  /* Signed relative branch target */
-	reg        X_branch;         /* Instruction is a branch */
-
-	/*
-	 * State passed from Execute (X) to Store (S)
-	 */
-	reg        S_ready;          /* Execute (X) output is ready for next stage. */
-	reg [15:0] S_pc;             /* Address following the current instruction */
-	reg [7:0]  S_out;            /* Result of execute stage */
-	reg [1:0]  S_out_index;      /* Result output register index */
-	reg        S_out_wb;         /* Enable write-back to register */
-	reg [7:0]  S_old_status;     /* Value of PSW at start of instruction */
-	reg [7:0]  S_status_mask;    /* Update mask for status register */
-	reg [7:0]  S_status;         /* Value of PSW at start of instruction */
-	reg [15:0] S_branch_target;  /* Signed relative branch target */
-	reg        S_branch;         /* Instruction is a branch */
-
-	/*
-	 * State passed from Store (S) to Write-Back (W)
-	 */
-	reg        W_ready;          /* Execute (X) output is ready for next stage. */
-	reg [15:0] W_pc;             /* Address following the current instruction */
-	reg [7:0]  W_out;            /* Result of execute stage */
-	reg [1:0]  W_out_index;      /* Result output register index */
-	reg        W_out_wb;         /* Enable write-back to register */
-	reg [7:0]  W_old_status;     /* Value of PSW at start of instruction */
-	reg [7:0]  W_status_mask;    /* Update mask for status register */
-	reg [7:0]  W_status;         /* Value of PSW at start of instruction */
-	reg [15:0] W_branch_target;  /* Signed relative branch target */
-	reg        W_branch;         /* Instruction is a branch */
-
-	/*
-	 * State passed from Write-Back (W) to Sleep (Z)
-	 */
-	reg        Z_ready;          /* Write-Back (W) output is ready for next stage. */
-
-	/*
-	 * State passed from Sleep (Z) back to Fetch (F)
-	 */
-	reg        F_ready;          /* Execute (X) output is ready for next stage. */
-
-	/*
-	 * Implementation of the CPU pipeline. Pipeline stages may be skipped
-	 * based on the decoded instruction.
+	 * The CPU has access to memory only on the first of every third cycle
+	 * following a reset. During reset the initial PC is put on the address
+	 * bus and the value is available on the following cycle. This means the
+	 * CPU uses the reset cycle for the initial fetch. Intermediate cycles
+	 * are given to the DSP to read / write audio data.
 	 *
-	 * The delay stage ensures that the instructions are executed at the same
-	 * speed as the original hardware. Since the actual SPC700 CPU takes a
-	 * minimum of 2 cycles for every instruction, we always have enough time (at
-	 * 2x speed) for the minimum 4 stages (fetch, decode, compute, write).
+	 * In the original hardware the CPU would be clocked at the same rate as
+	 * the memory access. Instead this implementation uses the source clock
+	 * (3MHz instead of 1Mhz) directly. This allows instructions to be broken
+	 * down into a few separate states and to handle the BRAM access latency.
+	 *
+	 * Timing Diagram:
+	 *
+	 *      0   1   2   3   4   5   6
+	 *      |___|___|___|___|___|___|
+	 *      | M | R |   | M | R |   |
+	 *      | A | B | C | D | E | F |
+	 *      |___|___|___|___|___|___|
+	 *
+	 * Clock pulse edges are labeled above, and the intermediate logic
+	 * propagation is labeled with letters below. Intermediate logic periods
+	 * marked with 'M' are when the CPU's memory bus is presented to the
+	 * actual BRAM. The BRAM uses output registers which means the result is
+	 * available on the bus for the duration of the periods marked with an
+	 * 'R'.
+	 *
+	 * This means the BRAM address presented via logic in reset at cycle 0 is
+	 * not available for decoding until cycle 2, and a one cycle delay must be
+	 * inserted. This is handled via STATE_LOAD. The current position in the
+	 * memory bus timing diagram is tracked with `bus_state` and STATE_LOAD
+	 * can wait until the appropriate state is hit before continuing.
 	 */
 
 	/*
-	 * Reset Logic
+	 * CPU global state
 	 */
+	reg [3:0]  state;              /* Current CPU state (see below) */
+	reg [2:0]  bus_state;          /* Memory bus state (see below) */
+	reg [15:0] fetch_pc;           /* Intermediate PC during fetching */
+
+	/*
+	 * Bit indexes for `state` that determine the current CPU operation. Uses
+	 * one-hot encoding.
+	 */
+	parameter STATE_FETCH     = 0, /* Wait on instruction (first byte) fetch. */
+	          STATE_DECODE    = 1, /* Decode instruction */
+	          STATE_FETCH_IMM = 2, /* Wait on immediate byte(s) fetch. */
+	          STATE_EXECUTE   = 3; /* TODO */
+
+	/*
+	 * Bit indexes for `bus_state` that keep track of the memory bus timing.
+	 * Only every third cycle connects the CPU to the on the memory control
+	 * lines.
+	 */
+	parameter MBUS_MASTER = 0,  /* CPU can set memory op during this cycle */
+	          MBUS_WAIT   = 1,  /* Waiting for BRAM / result */
+	          MBUS_RESULT = 2;  /* If read requested, output is available */
+
+	/*
+	 * Scratch state for execution. Initialized by decoder.
+	 */
+	reg [15:0] scratch_U;        /* Input field U value (16-bit) */
+	reg [7:0]  scratch_V;        /* Input field V value (8-bit) */
+	reg [3:0]  scratch_fetch;    /* Immedate value fetches required */
+
+	/*
+	 * Instruction decoding outputs. Scratch registers are named U / V to
+	 * avoid confusion with CPU registers A / X / Y.
+	 */
+	reg        D_data_carry;     /* Input carry bit */
+	reg [1:0]  D_out_index;      /* Result output register index */
+	reg        D_out_wb;         /* Enable write-back to register */
+	reg [7:0]  D_status_mask;    /* Update mask for status register */
+	reg [7:0]  D_status;         /* Constant value for PSW updates */
+	reg        D_alu_enable;     /* Enable ALU */
+	reg [7:0]  D_alu_mode;       /* ALU operation mode */
+	reg        D_branch;         /* Instruction is a branch */
+	reg [7:0]  D_old_status;     /* Value of PSW at start of instruction */
+
+	assign out_halted = ~enable;
+
+	/*
+	 * Common logic to move fetch address forward.
+	 */
+	wire [15:0] fetch_pc_next;
+	assign fetch_pc_next = fetch_pc + 16'b0000_0000_0000_0001;
+
+	/*
+	 * Common Reset
+	 */
+
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
 			enable <= 1'b1;
+			state <= (1 << STATE_FETCH);
 
-			/* XXX Cleanup with final RAM */
+			/* CPU register reset */
+			/* TODO Allow these to be driven externally */
+			PC <= 16'b0000_0000_0000_0000;
+			R[REGISTER_A] <= 8'b0000_0000;
+			R[REGISTER_X] <= 8'b0000_0000;
+			R[REGISTER_Y] <= 8'b0000_0000;
+			R[REGISTER_SP] <= 8'b0000_0000;
+			PSW <= 8'b0000_0000;
+
+			/* Scratch state reset */
+			scratch_U <= 16'b0000_0000_0000_0000;
+			scratch_V <= 8'b0000_0000;
+			scratch_fetch <= (1 << DECODE_IMM_NONE);
+
+			/* Initial fetch setup */
+			/* Note: Keep synchronized with PC initialization */
+			fetch_pc <= 16'b0000_0000_0000_0000;
+			ram_address <= 16'b0000_0000_0000_0000;
 			ram_write <= 8'b0000_0000;
 			ram_write_enable <= 1'b0;
 		end
 	end
 
 	/*
-	 * Instruction Fetch (F)
+	 * Memory bus timing
 	 */
+
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			D_pc <= 16'b0000_0000_0000_0000;
-			D_ready <= 1'b0;
-		end else if (enable && F_ready) begin
-			D_pc <= PC;
-
-			/* Prepare to read the instruction from memory. Result will be
-			 * visible on the RAM output in the decode stage. */
-			/* TODO */
-			ram_write_enable <= 1'b0;
-
-			D_ready <= 1'b1;
+			/* First state is MBUS_MASTER, but next state is already
+			 * MBUS_WAIT. Common reset logic will place initial address on
+			 * bus. */
+			bus_state <= (1 << MBUS_WAIT);
 		end else begin
-			D_ready <= 1'b0;
+			case (1'b1)
+				bus_state[MBUS_MASTER]: begin
+					bus_state <= (1 << MBUS_WAIT);
+				end
+
+				bus_state[MBUS_WAIT]: begin
+					bus_state <= (1 << MBUS_RESULT);
+				end
+
+				bus_state[MBUS_RESULT]: begin
+					bus_state <= (1 << MBUS_MASTER);
+				end
+			endcase
 		end
 	end
 
 	/*
-	 * Instruction Decode (D)
+	 * Instruction fetch (initial byte only)
 	 */
+
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			P_pc <= 16'b0000_0000_0000_0000;
+		end else if (enable && state[STATE_FETCH]) begin
+			if (bus_state[MBUS_WAIT]) begin
+				/* Next state will be MBUS_RESULT with data available. */
+				state <= (1 << STATE_DECODE);
+			end
+		end
+	end
 
-			P_data_A_fetch <= 2'b0;
-			P_data_A_load <= 1'b0;
-			P_data_A <= 8'b0000_0000;
+	/*
+	 * Instruction decode
+	 */
 
-			P_data_B_fetch <= 2'b0;
-			P_data_B_load <= 1'b0;
-			P_data_B <= 8'b0000_0000;
+	always @(posedge clock)
+	begin
+		if (reset == 1'b1) begin
+			D_out_index <= 2'b00;
+			D_out_wb <= 1'b0;
+			D_status_mask <= 8'b0000_0000;
+			D_status <= 8'b0000_0000;
+			D_old_status <= 8'b0000_0000;
 
-			P_out_index <= 2'b00;
-			P_out_wb <= 1'b0;
-			P_status_mask <= 8'b0000_0000;
-			P_status <= 8'b0000_0000;
-			P_old_status <= 8'b0000_0000;
+			D_data_carry <= 1'b0;
+			D_alu_enable <= 1'b0;
+			D_alu_mode <= 8'b0000_0000;
 
-			P_data_carry <= 1'b0;
-			P_alu_enable <= 1'b0;
-			P_alu_mode <= 8'b0000_0000;
+			D_branch <= 1'b0;
+		end else if (enable && state[STATE_DECODE]) begin
+			/* If branching, this will be updated by the execution stage. */
+			fetch_pc <= fetch_pc_next;
 
-			P_bytes <= 2'b00;
-			P_branch_target <= 8'b0000_0000;
-			P_branch_load <= 2'b00;
-			P_branch <= 1'b0;
-
-			P_ready <= 1'b0;
-		end else if (enable && D_ready) begin
-			P_pc <= D_pc;
-
-			P_data_A_fetch <= decode_source_a_fetch;
-			P_data_A_load <= decode_source_a_load;
-			case (decode_source_a_mode)
+			case (decode_source_u_mode)
 				DATA_R: begin
-					P_data_A <= R[decode_source_a_index];
+					scratch_U <= { 8'b0000_0000, R[decode_source_u_index] };
 				end
 
 				DATA_IMM: begin
-					P_data_A <= decode_source_a_imm;
+					scratch_U <= { 8'b0000_0000, decode_source_u_imm };
 				end
 			endcase
 
-			P_data_B_fetch <= decode_source_b_fetch;
-			P_data_B_load <= decode_source_b_load;
-			case (decode_source_b_mode)
+			case (decode_source_v_mode)
 				DATA_R: begin
-					P_data_B <= R[decode_source_b_index];
+					scratch_V <= R[decode_source_v_index];
 				end
 
 				DATA_IMM: begin
-					P_data_B <= decode_source_b_imm;
+					scratch_V <= decode_source_v_imm;
 				end
 			endcase
 
-			P_data_carry <= decode_source_carry;
+			scratch_fetch <= decode_source_fetch;
+			D_data_carry <= decode_source_carry;
 
-			P_branch_target <= decode_branch_target;
-			P_branch_load <= decode_branch_load;
-			P_branch <= decode_branch;
+			D_branch <= decode_branch;
 
-			P_out_index <= decode_result_index;
-			P_out_wb <= decode_result_wb;
-			P_status_mask <= decode_status_mask;
-			P_status <= decode_status;
-			P_old_status <= PSW;
-			P_alu_mode <= decode_alu_mode;
-			P_alu_enable <= decode_alu_enable;
-			P_bytes <= decode_bytes;
+			D_out_index <= decode_result_index;
+			D_out_wb <= decode_result_wb;
+			D_status_mask <= decode_status_mask;
+			D_status <= decode_status;
+			D_old_status <= PSW;
+			D_alu_mode <= decode_alu_mode;
+			D_alu_enable <= decode_alu_enable;
 
-			P_ready <= 1'b1;
+			if (decode_source_fetch == DECODE_IMM_NONE) begin
+				state <= (1 << STATE_DECODE); /* TODO */
+			end else begin
+				state <= (1 << STATE_FETCH_IMM);
+			end
 
 			/* TODO Multiple drivers */
 			enable <= ~decode_error;
-		end else begin
-			P_ready <= 1'b0;
 		end
 	end
 
 	/*
-	 * Parameter Fetch (P)
+	 * Immediate byte(s) fetch
 	 */
-	/* TODO Add back support for 3-byte decodings */
+
 	always @(posedge clock)
 	begin
 		if (reset == 1'b1) begin
-			L_pc <= 16'b0000_0000_0000_0000;
+		end else if (enable && state[STATE_FETCH_IMM]) begin
+			/* TODO */
+			if (bus_state[MBUS_RESULT]) begin
+				/*
+				 * Data is available on the memory bus.
+				 *
+				 * We "waste" the entire cycle by only updating the scratch
+				 * registers here instead of jumping into execute, but it keeps
+				 * the timing consistent between instructions with / without
+				 * fetched immediates since this cycle would otherwise be
+				 * occupied by decode.
+				 */
+				case (1'b1)
+					scratch_fetch[DECODE_IMM_U]: begin
+						scratch_U <= { 8'b0000_0000, in_ram_read };
+						state <= (1 << STATE_EXECUTE);
+					end
 
-			L_data_A <= 8'b0000_0000;
-			L_data_B <= 8'b0000_0000;
-			L_data_carry <= 1'b0;
+					scratch_fetch[DECODE_IMM_UV]: begin
+						scratch_U <= { 8'b0000_0000, in_ram_read };
+						scratch_fetch <= (1 << DECODE_IMM_V);
+						state <= (1 << STATE_FETCH_IMM);
+					end
 
-			L_out_index <= 2'b00;
-			L_out_wb <= 1'b0;
-			L_status_mask <= 8'b0000_0000;
-			L_status <= 8'b0000_0000;
-			L_old_status <= 8'b0000_0000;
-
-			L_alu_enable <= 1'b0;
-			L_alu_mode <= 8'b0000_0000;
-			L_branch_target <= 8'b0000_0000;
-			L_branch <= 1'b0;
-
-			L_ready <= 1'b0;
-		end else if (enable && P_ready) begin
-			/* TODO This can't stay here if this stage becomes optional */
-			/* Branches are relative to the start of the following
-			 * instruction. So this logic always applies even with branching. */
-			L_pc <= P_pc + { 14'b00_0000_0000_0000, P_bytes };
-
-			if (P_data_A_fetch[0]) begin
-				L_data_A <= in_ram_read;
+					scratch_fetch[DECODE_IMM_V]: begin
+						scratch_V <= in_ram_read;
+						state <= (1 << STATE_EXECUTE);
+					end
+				endcase
 			end else begin
-				L_data_A <= P_data_A;
+				/* Result not yet available - present address on control lines
+				 * because decode does not. */
+				ram_address <= fetch_pc;
+				ram_write_enable <= 1'b0;
 			end
-
-			if (P_data_B_fetch[0]) begin
-				L_data_B <= in_ram_read;
-			end else begin
-				L_data_B <= P_data_B;
-			end
-
-			if (P_branch_load[0]) begin
-				L_branch_target <= in_ram_read;
-			end else begin
-				L_branch_target <= P_branch_target;
-			end
-
-			L_data_carry <= P_data_carry;
-			L_out_index <= P_out_index;
-			L_out_wb <= P_out_wb;
-			L_status_mask <= P_status_mask;
-			L_status <= P_status;
-			L_old_status <= P_old_status;
-			L_alu_enable <= P_alu_enable;
-			L_alu_mode <= P_alu_mode;
-			L_branch <= P_branch;
-
-			L_ready <= 1'b1;
-		end else begin
-			L_ready <= 1'b0;
 		end
 	end
 
 	/*
-	 * Memory Load (L)
+	 * Debug
 	 */
-	always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-			X_pc <= 16'b0000_0000_0000_0000;
-			X_out_index <= 2'b00;
-			X_out_wb <= 1'b0;
-			X_status_mask <= 8'b0000_0000;
-			X_status <= 8'b0000_0000;
-			X_branch_target <= 8'b0000_0000;
-			X_branch <= 1'b0;
 
-			X_ready <= 1'b0;
-		end else if (enable && L_ready) begin
-			X_pc <= L_pc;
-			X_data_A <= L_data_A;
-			X_data_B <= L_data_B;
-			X_data_carry <= L_data_carry;
-			X_out_index <= L_out_index;
-			X_out_wb <= L_out_wb;
-			X_status_mask <= L_status_mask;
-			X_status <= L_status;
-			X_old_status <= L_old_status;
-			X_alu_enable <= L_alu_enable;
-			X_alu_mode <= L_alu_mode;
-			X_branch <= L_branch;
-			X_branch_target <= L_branch_target;
+	`ifdef verilator
+		function void debug_print_registers;
+			/* verilator public */
+			$display("A:      %02x", R[0]);
+			$display("X:      %02x", R[1]);
+			$display("Y:      %02x (+/-)", R[2]);
+			$display("SP:     %02x", R[3]);
+			$display("PSW:    %02x", PSW);
+			$display("PC:     %04x", PC);
+		endfunction;
 
-			/* TODO - Currently always NOOP */
+		function void debug_print_decode;
+			/* verilator public */
+			$display("fetch_pc:        %04x", fetch_pc);
+			$display("scratch_U:       %04x", scratch_U);
+			$display("scratch_V:       %02x", scratch_V);
+			$display("scratch_fetch:   %s%s%s%s",
+			         scratch_fetch[DECODE_IMM_NONE] ? "N/A" : "",
+			         scratch_fetch[DECODE_IMM_U]    ? "U"   : "",
+			         scratch_fetch[DECODE_IMM_V]    ? "V"   : "",
+			         scratch_fetch[DECODE_IMM_UV]   ? "U,V" : "");
+			$display("D_data_carry:    %d",   D_data_carry);
+			$display("D_out_index:     %d",   D_out_index);
+			$display("D_out_wb:        %d",   D_out_wb);
+			$display("D_status_mask:   %02x", D_status_mask);
+			$display("D_status:        %02x", D_status);
+			$display("D_alu_enable:    %d",   D_alu_enable);
+			$display("D_alu_mode:      %s%s%s%s%s%s%s%s",
+			         D_alu_mode[ALU_OR]     ? "U | V"  : "",
+			         D_alu_mode[ALU_AND]    ? "U & V"  : "",
+			         D_alu_mode[ALU_XOR]    ? "U ^ V"  : "",
+			         D_alu_mode[ALU_ANDNOT] ? "U & ~V" : "",
+			         D_alu_mode[ALU_ADD]    ? "U + V"  : "",
+			         D_alu_mode[ALU_SUB]    ? "U - V"  : "",
+			         D_alu_mode[ALU_NONE_U] ? "U"      : "",
+			         D_alu_mode[ALU_NONE_V] ? "V"      : "");
+			$display("D_branch:        %d",   D_branch);
+			$display("D_old_status:    %02x", D_old_status);
+		endfunction;
 
-			X_ready <= 1'b1;
-		end else begin
-			X_ready <= 1'b0;
-		end
-	end
-
-	/*
-	 * Logic Execution (X)
-	 */
-	always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-			S_pc <= 16'b0000_0000_0000_0000;
-			S_out <= 8'b0000_0000;
-			S_out_index <= 2'b00;
-			S_out_wb <= 1'b0;
-			S_status_mask <= 8'b0000_0000;
-			S_status <= 8'b0000_0000;
-			S_branch_target <= 16'b0000_0000_0000_0000;
-			S_branch <= 1'b0;
-
-			S_ready <= 1'b0;
-		end else if (enable && X_ready) begin
-			if (X_alu_enable) begin
-				S_out <= alu_result;
-				/* TODO remaining bits */
-				S_status[PSW_Z] <= alu_zero;
-			end else begin
-				S_out <= 8'b0000_0000;
-				S_status <= X_status;
-			end
-
-			S_out_index <= X_out_index;
-			S_out_wb <= X_out_wb;
-			S_status_mask <= X_status_mask;
-			S_old_status <= X_old_status;
-
-			S_pc <= X_pc;
-			S_branch <= X_branch;
-			if (X_branch) begin
-				S_branch_target <= X_pc + { X_branch_target[7] ? 8'b1111_1111 : 8'b0000_0000, X_branch_target };
-			end else begin
-				S_branch_target <= 16'b0000_0000_0000_0000;
-			end
-
-			S_ready <= 1'b1;
-		end else begin
-			S_ready <= 1'b0;
-		end
-	end
-
-	/*
-	 * Store (memory)
-	 */
-	always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-			W_pc <= 16'b0000_0000_0000_0000;
-			W_out <= 8'b0000_0000;
-			W_out_index <= 2'b00;
-			W_out_wb <= 1'b0;
-			W_status_mask <= 8'b0000_0000;
-			W_status <= 8'b0000_0000;
-			W_branch_target <= 16'b0000_0000_0000_0000;
-			W_branch <= 1'b0;
-
-			W_ready <= 1'b0;
-		end else if (enable && S_ready) begin
-			/* TODO Currently a NOOP */
-
-			W_pc <= S_pc;
-			W_out <= S_out;
-			W_out_index <= S_out_index;
-			W_out_wb <= S_out_wb;
-			W_status_mask <= S_status_mask;
-			W_status <= S_status;
-			W_old_status <= S_old_status;
-			W_branch_target <= S_branch_target;
-			W_branch <= S_branch;
-
-			W_ready <= 1'b1;
-		end else begin
-			W_ready <= 1'b0;
-		end
-	end
-
-	/*
-	 * Write-Back (register update, branch calculation)
-	 */
-	always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-			PC <= 16'b0000_0000_0000_0000;
-			PSW <= 8'b0000_0000;
-
-			R[REGISTER_A] <= 8'b0000_0000;
-			R[REGISTER_X] <= 8'b0000_0000;
-			R[REGISTER_Y] <= 8'b0000_0000;
-			R[REGISTER_SP] <= 8'b0000_0000;
-
-			Z_ready <= 1'b0;
-		end else if (enable && W_ready) begin
-			if (W_out_wb) begin
-				R[W_out_index] <= W_out;
-			end
-
-			PSW <= (W_old_status & ~W_status_mask) | (W_status & W_status_mask);
-
-			/* Branches are taken when the status register has the 'Z' status
-			 * (result of operation was 0). */
-			if (W_branch && W_status[PSW_Z]) begin
-				PC <= W_branch_target;
-			end else begin
-				PC <= W_pc;
-			end
-
-			Z_ready <= 1'b1;
-		end else begin
-			Z_ready <= 1'b0;
-		end
-	end
-
-	/*
-	 * Delay (optional, to match original hardware)
-	 */
-	always @(posedge clock)
-	begin
-		if (reset == 1'b1) begin
-			/* Start pipeline in Fetch stage */
-			F_ready <= 1'b1;
-		end else if (enable && Z_ready) begin
-			F_ready <= 1'b1;
-		end else begin
-			F_ready <= 1'b0;
-		end
-	end
-
-	/*
-	 * Memory bus arbitration. The memory bus can be controlled by:
-	 *
-	 *  - Fetch (F) stage to read the instruction
-	 *  - Param (P) stage to read immediate values
-	 *  - Load (L) stage to read memory operands
-	 *  - Store (S) stage to write memory results
-	 *
-	 * TODO This is a mess and a hack.
-	 */
-	assign out_ram_address = D_ready ? (D_pc) : (D_pc + 1);
+		function void debug_print_status;
+			/* verilator public */
+			$display("state:     %s%s",
+			         state[STATE_FETCH]     ? "InitialFetch"   : "",
+			         state[STATE_DECODE]    ? "Decode"         : "",
+			         state[STATE_FETCH_IMM] ? "ImmediateFetch" : "");
+			$display("bus_state: %s%s%s",
+			         bus_state[MBUS_MASTER] ? "Master" : "",
+			         bus_state[MBUS_WAIT]   ? "Wait"   : "",
+			         bus_state[MBUS_RESULT] ? "Result" : "");
+		endfunction;
+	`endif
 endmodule

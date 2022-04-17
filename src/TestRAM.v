@@ -24,9 +24,9 @@ module TestRAM(address, data_in, data_out, clock, write_enable);
 		if (write_enable) begin
 			memory[address] <= data_in;
 		end
-	end
 
-	assign data_out = memory[address];
+		data_out <= memory[address];
+	end
 
 	//SB_RAM40_4K moo(.RADDR(address[10:0]), .RDATA(data_out), .RE(1'b1), .RCLK(clock), .RCLKE(1'b1));
 endmodule

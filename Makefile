@@ -1,4 +1,3 @@
-
 # You should define...
 # GUI_LIBS - linker flags for SDL2 and OpenGL3
 -include common.mk
@@ -6,19 +5,31 @@
 MODULES := $(patsubst src/%.v,%,$(wildcard src/*.v))
 BENCHES := $(patsubst src/%.cpp,%,$(wildcard src/*.cpp))
 
-CXXFLAGS := -Ibuild/
-
 ifeq ($(shell uname -s),Linux)
-VERILATOR_INC := /usr/share/verilator/include
+VERILATOR_INC := /usr/local/share/verilator/include
 else
 # VERILATOR_INC := /opt/homebrew/Cellar/verilator/4.200/share/verilator/include
 VERILATOR_INC := /c/msys/mingw64/share/verilator/include/
-CXXFLAGS += -I/c/msys/mingw64/share/verilator/include/vltstd/
 endif
 
+CXXFLAGS := -Ibuild/
 CXXFLAGS += -std=c++17
-CXXFLAGS += -I$(VERILATOR_INC) -Wno-attributes -Ofast
-VERILATOR_FLAGS := -cc -Wall -Wno-UNUSED -O3 --x-assign fast --x-initial fast --noassert -DDEBUG_DSP
+CXXFLAGS += -I$(VERILATOR_INC)
+CXXFLAGS += -I$(VERILATOR_INC)/vltstd
+CXXFLAGS += -Wno-attributes
+
+#CXXFLAGS += -O3
+#CXXFLAGS += -Ofast
+
+VERILATOR_FLAGS := -cc
+VERILATOR_FLAGS += -Wall
+VERILATOR_FLAGS += -Wno-UNUSED
+VERILATOR_FLAGS += -O3
+VERILATOR_FLAGS += --noassert
+VERILATOR_FLAGS += -DDEBUG_DSP
+
+#VERILATOR_FLAGS += --x-assign fast
+#VERILATOR_FLAGS += --x-initial fast
 
 .PHONY: all all-verilate all-test clean
 all: all-verilate all-test
@@ -69,15 +80,16 @@ $(foreach what,$(BENCHES),$(eval $(call GEN_test,$(what))))
 
 IMGUI_FLAGS := -Igui/imgui -Igui/imgui/backends
 
+.PHONY: gui
 gui: $(wildcard src/*.h) gui/gui.cpp build/libTestDSP.a
-	$(CXX) $(CXXFLAGS) $(IMGUI_FLAGS) \
-		-Isrc -Ibuild/build-TestDSP \
-		gui/*.cpp \
-		gui/imgui/imgui*.cpp \
-		gui/imgui/backends/imgui_impl_sdl.cpp \
-		gui/imgui/backends/imgui_impl_opengl3.cpp \
-		-Lbuild \
-		$(GUI_LIBS) -lTestDSP -lverilated \
+	$(CXX) $(CXXFLAGS) $(IMGUI_FLAGS)              \
+		-Isrc -Ibuild/build-TestDSP                \
+		gui/*.cpp                                  \
+		gui/imgui/imgui*.cpp                       \
+		gui/imgui/backends/imgui_impl_sdl.cpp      \
+		gui/imgui/backends/imgui_impl_opengl3.cpp  \
+		-Lbuild                                    \
+		$(GUI_LIBS) -lTestDSP -lverilated          \
 		-o build/gui
 
 ################################################################################

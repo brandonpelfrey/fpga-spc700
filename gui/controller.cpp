@@ -1,3 +1,4 @@
+#include <cstring>
 #include "controller.h"
 
 void Controller::loadSPCFromFile(const char *file_path)

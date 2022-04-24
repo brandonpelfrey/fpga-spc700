@@ -518,37 +518,39 @@ module CPU(
 	 **************************************************************************/
 
 	/*
-	 * The CPU has access to memory only on the first of every third cycle
-	 * following a reset. During reset the initial PC is put on the address
-	 * bus and the value is available on the following cycle. This means the
-	 * CPU uses the reset cycle for the initial fetch. Intermediate cycles
-	 * are given to the DSP to read / write audio data.
+	 * In the original hardware the CPU would be clocked based on the rate it
+	 * could access the memory bus. Instead this implementation uses the same
+	 * clock as the DSP (3Mhz) but only uses the memory bus on the first of
+	 * every three cycles.
 	 *
-	 * In the original hardware the CPU would be clocked at the same rate as
-	 * the memory access. Instead this implementation uses the source clock
-	 * (3MHz instead of 1Mhz) directly. This allows instructions to be broken
-	 * down into a few separate states and to handle the BRAM access latency.
+	 * On the clock pulse that triggers reset, the initial PC fetch address is
+	 * placed on the memory bus. The first cycle following reset can begin
+	 * instruction decoding.
 	 *
 	 * Timing Diagram:
 	 *
-	 *      0   1   2   3   4   5   6
-	 *      |___|___|___|___|___|___|
-	 *      | M | R |   | M | R |   |
-	 *      | A | B | C | D | E | F |
-	 *      |___|___|___|___|___|___|
+	 *      CPU 0     1     2     3     4     5     6
+	 *          |_____|_____|_____|_____|_____|_____|
+	 *          |  A  |  B  |  C  |  D  |  E  |  F  |
+	 *          |MM RR|     |     |MM RR|     |     |
+	 *          |__|__|__|__|__|__|__|__|__|__|__|__|
+	 *          |  |  |  |  |  |  |  |  |  |  |  |  |
+	 *      RAM 0  1  2  3  4  5  6  7  8  9  1  11 12
 	 *
-	 * Clock pulse edges are labeled above, and the intermediate logic
-	 * propagation is labeled with letters below. Intermediate logic periods
-	 * marked with 'M' are when the CPU's memory bus is presented to the
-	 * actual BRAM. The BRAM uses output registers which means the result is
-	 * available on the bus for the duration of the periods marked with an
-	 * 'R'.
+	 * In the diagram above, CPU clock cycles are labeled on top and RAM clock
+	 * cycles are labeled on the bottom. RAM is clocked at 6MHz instead of
+	 * 3MHz to hide the additional cycle of access latency for BRAM.
 	 *
-	 * This means the BRAM address presented via logic in reset at cycle 0 is
-	 * not available for decoding until cycle 2, and a one cycle delay must be
-	 * inserted. This is handled via STATE_LOAD. The current position in the
-	 * memory bus timing diagram is tracked with `bus_state` and STATE_LOAD
-	 * can wait until the appropriate state is hit before continuing.
+	 * i.e if the reset happens on cycle 0, PC will be exposed on the memory
+	 * bus for the duration between CPU cycles 0 and 1 (logic propagation
+	 * labeled "A"). The RAM will internally do its address lookup in the
+	 * portion labeled "MM", and the output will be clocked into the RAM's
+	 * output registers on RAM cycle 1. The result is available on the bus
+	 * during the time marked RR which means it is available for processing in
+	 * the CPU's cycle 1.
+	 *
+	 * This requires the CPU propagation delay to be less than (1 / 6MHz)
+	 * instead of the actual 3MHz but simplifies logic.
 	 */
 
 	/*
